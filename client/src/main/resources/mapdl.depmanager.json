@@ -6,6 +6,12 @@
       "artifactId": "network",
       "version": "0.0.1",
       "classifier": ""
+    },
+    {
+      "groupId": "net.daporkchop.mapdl",
+      "artifactId": "common",
+      "version": "0.0.1",
+      "classifier": ""
     }
   ],
   "repositories": [

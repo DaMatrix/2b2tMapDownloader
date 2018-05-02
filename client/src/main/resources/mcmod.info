@@ -1,7 +1,7 @@
 [
   {
     "modid": "client",
-    "name": "Client",
+    "name": "2b2t Map Downloader",
     "description": "The client mod for the 2b2t map downloader project",
     "version": "${version}",
     "mcversion": "${mcversion}",
