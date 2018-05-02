@@ -1,0 +1,20 @@
+[
+  {
+    "modid": "client",
+    "name": "Client",
+    "description": "The client mod for the 2b2t map downloader project",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "url": "",
+    "updateUrl": "",
+    "authorList": [
+      "DaPorkchop_"
+    ],
+    "credits": "",
+    "logoFile": "",
+    "screenshots": [],
+    "dependencies": [
+      ""
+    ]
+  }
+]
