@@ -8,3 +8,6 @@ run/
 *.iml
 *.ipr
 *.class
+
+# This is a dirty hack i had to do to get common into my classpath in my IDE
+/client/src/main/java/net/daporkchop/mapdl/common/

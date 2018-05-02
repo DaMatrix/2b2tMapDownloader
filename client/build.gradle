@@ -42,14 +42,48 @@ minecraft {
     // Use non-default mappings at your own risk. they may not always work.
     // simply re-run your setup task after changing the mappings to update your workspace.
     mappings = project.mcpVersion
-    // makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+    makeObfSourceJar = false // an Srg named sources jar is made by default. uncomment this to disable.
+}
+
+sourceSets {
+    main {
+        java {
+            //the normal src folder seems to be added automatically
+            srcDirs '../common/src'
+            //not sure why this works but it does
+            exclude 'net/daporkchop/mapdl/common/**'
+        }
+    }
+    api {
+        java {
+            srcDirs '../common/src'
+            exclude 'net/daporkchop/mapdl/common/**'
+        }
+    }
+    test {
+        java {
+            srcDirs '../common/src'
+            exclude 'net/daporkchop/mapdl/common/**'
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        //fix a stupid forgegradle bug that causes crashes in deobf
+        force("com.google.guava:guava:21.0")
+    }
 }
 
 repositories {
     mavenCentral()
+    maven {
+        url 'http://maven.daporkchop.net/'
+    }
 }
 
 dependencies {
+    compile 'net.daporkchop.lib:network:0.0.1'
 }
 
 processResources {
@@ -70,3 +104,5 @@ processResources {
         exclude "mcmod.info"
     }
 }
+
+sourceCompatibility = targetCompatibility = "1.8"

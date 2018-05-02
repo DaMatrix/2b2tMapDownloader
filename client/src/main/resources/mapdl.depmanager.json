@@ -1,0 +1,18 @@
+{
+  "name": "2b2t Map Downloader",
+  "dependencies": [
+    {
+      "groupId": "net.daporkchop.lib",
+      "artifactId": "network",
+      "version": "0.0.1",
+      "classifier": ""
+    }
+  ],
+  "repositories": [
+    {
+      "id": "DaPorkchop_",
+      "url": "http://maven.daporkchop.net/",
+      "signature": "A4z389f6jiDFbds1MzwjjKVKZd2ERBem61RAz9qUtVnKZrXkwkSbP716BAgjtHvtteh6xeaWdFf8UEbhZ7A3nP8d2GVTMZ77a8QTPVxdqFjNpp4ic2yt9eyWye7283CUpDFr6HT5fFpUerQxzQgKeEoPhrXC6Wbvh9HnVACmBK6tZxj"
+    }
+  ]
+}
