@@ -13,31 +13,24 @@
  *
  */
 
-group 'net.daporkchop.mapdl'
-version '0.0.1'
+package net.daporkchop.mapdl.common.map;
 
-apply plugin: 'java'
-apply plugin: 'maven-publish'
+import net.daporkchop.lib.db.object.key.KeyHasher;
+import net.daporkchop.lib.math.vector.i.Vec2i;
 
-sourceCompatibility = 1.8
+public class KeyHasherVec2i extends KeyHasher<Vec2i> {
+    @Override
+    public boolean canGetKeyFromHash() {
+        return false;
+    }
 
-repositories {
-    mavenCentral()
-}
+    @Override
+    public int getKeyLength() {
+        return 0;
+    }
 
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    @Override
+    public void hash(Vec2i key, byte[] hash) {
 
-    compile 'net.daporkchop.lib:network:0.2.0'
-    compile 'net.daporkchop.lib:db:0.2.0'
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-        }
     }
 }
-
-build.finalizedBy(publishToMavenLocal)

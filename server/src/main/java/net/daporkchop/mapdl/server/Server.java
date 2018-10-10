@@ -21,11 +21,15 @@ import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherMode;
 import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherType;
 import net.daporkchop.lib.crypto.cipher.symmetric.padding.BlockCipherPadding;
 import net.daporkchop.lib.crypto.sig.ec.CurveType;
+import net.daporkchop.lib.db.PorkDB;
 import net.daporkchop.lib.encoding.compression.EnumCompression;
+import net.daporkchop.lib.math.vector.i.Vec2i;
 import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
 import net.daporkchop.lib.network.endpoint.server.PorkServer;
+import net.daporkchop.mapdl.common.map.ChunkData;
 import net.daporkchop.mapdl.common.net.MapDLProtocol;
 import net.daporkchop.mapdl.common.net.MapSession;
+import net.daporkchop.mapdl.common.user.UserProfile;
 import net.daporkchop.mapdl.server.net.MapSessionServer;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 
@@ -38,6 +42,12 @@ import java.util.Scanner;
 public class Server implements ServerConstants {
     @NonNull
     public final PorkServer<MapSession> netServer;
+
+    @NonNull
+    public final PorkDB<String, UserProfile> userDB;
+
+    @NonNull
+    public final PorkDB<Vec2i, ChunkData> mapDB;
 
     @SuppressWarnings("unchecked")
     public Server() {
@@ -52,6 +62,8 @@ public class Server implements ServerConstants {
                 .setAddress(new InetSocketAddress(NETWORK_PORT))
                 .setProtocol(new MapDLProtocol(MapSessionServer::new))
                 .build();
+
+
     }
 
     public static void main(String... args) {

@@ -13,31 +13,7 @@
  *
  */
 
-group 'net.daporkchop.mapdl'
-version '0.0.1'
+package net.daporkchop.mapdl.common.map;
 
-apply plugin: 'java'
-apply plugin: 'maven-publish'
-
-sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
+public class ChunkData {
 }
-
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-
-    compile 'net.daporkchop.lib:network:0.2.0'
-    compile 'net.daporkchop.lib:db:0.2.0'
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            from components.java
-        }
-    }
-}
-
-build.finalizedBy(publishToMavenLocal)
