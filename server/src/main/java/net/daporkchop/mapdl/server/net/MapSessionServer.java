@@ -13,22 +13,19 @@
  *
  */
 
-package net.daporkchop.mapdl.common;
+package net.daporkchop.mapdl.server.net;
 
 import net.daporkchop.lib.network.server.NetServer;
-import net.daporkchop.lib.network.session.BaseSession;
 import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.mapdl.common.net.MapSession;
 
-/**
- * @author DaPorkchop_
- */
-public class MapSession extends BaseSession {
-    public MapSession(SocketWrapper socket) {
+public class MapSessionServer extends MapSession implements MapSession.SessionServer {
+    public MapSessionServer(SocketWrapper socket) {
         super(socket);
     }
 
     @Override
     public void onConnect(NetServer server) {
-
+        super.onConnect(server);
     }
 }

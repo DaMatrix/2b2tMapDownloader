@@ -13,40 +13,31 @@
  *
  */
 
-package net.daporkchop.mapdl.client;
+package net.daporkchop.mapdl.common.net;
 
-import net.daporkchop.mapdl.client.util.ClientConstants;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import lombok.NonNull;
+import net.daporkchop.lib.network.protocol.PacketProtocol;
+import net.daporkchop.lib.network.protocol.packet.Message;
+import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.mapdl.common.util.Constants;
 
-@Mod(
-        modid = Client.MOD_ID,
-        name = Client.MOD_NAME,
-        version = Client.VERSION/*,
-        dependencies = "required-after:depmanager@[0.0.1,);"*/
-)
-public class Client implements ClientConstants {
-    public static final String MOD_ID = "client";
-    public static final String MOD_NAME = "2b2t Map Downloader";
-    public static final String VERSION = "0.0.1";
+import java.util.function.Function;
 
-    @Mod.Instance(MOD_ID)
-    public static Client INSTANCE;
+/**
+ * @author DaPorkchop_
+ */
+public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
+    @NonNull
+    public final Function<SocketWrapper, MapSession> sessionSupplier;
 
-    @Mod.EventHandler
-    public void preinit(FMLPreInitializationEvent event) {
+    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
+        super("MapDL", PROTOCOL_VERSION);
 
+        this.sessionSupplier = sessionSupplier;
     }
 
-    @Mod.EventHandler
-    public void init(FMLInitializationEvent event) {
-
-    }
-
-    @Mod.EventHandler
-    public void postinit(FMLPostInitializationEvent event) {
-
+    @Override
+    public MapSession newSession(SocketWrapper base, boolean server) {
+        return this.sessionSupplier.apply(base);
     }
 }

@@ -15,15 +15,57 @@
 
 package net.daporkchop.mapdl.server;
 
-import net.daporkchop.mapdl.common.INetHandlerServer;
-import net.daporkchop.mapdl.common.MapDLProtocol;
+import lombok.NonNull;
+import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherMode;
+import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherType;
+import net.daporkchop.lib.crypto.cipher.symmetric.padding.PaddingScheme;
+import net.daporkchop.lib.crypto.sig.ec.ECCurves;
+import net.daporkchop.lib.encoding.compression.EnumCompression;
+import net.daporkchop.lib.network.server.NetServer;
+import net.daporkchop.lib.network.server.ServerBuilder;
+import net.daporkchop.mapdl.common.net.MapDLProtocol;
+import net.daporkchop.mapdl.server.net.MapSessionServer;
+import net.daporkchop.mapdl.server.util.ServerConstants;
+
+import java.util.Scanner;
 
 /**
  * @author DaPorkchop_
  */
-public class Server implements INetHandlerServer {
+public class Server implements ServerConstants {
+    @NonNull
+    public final NetServer netServer;
+
+    public Server() {
+        this.netServer = new ServerBuilder()
+                .setCompression(EnumCompression.GZIP)
+                .setCurve(ECCurves.brainpoolp192r1)
+                .setEncryption(BlockCipherType.AES)
+                .setEncryptionMode(BlockCipherMode.CBC)
+                .setEncryptionPadding(PaddingScheme.PKCS7)
+                .setProtocol(new MapDLProtocol(MapSessionServer::new))
+                .setPort(NETWORK_PORT)
+                .setHandleWorkers(Runtime.getRuntime().availableProcessors())
+                .setReadWorkers(Runtime.getRuntime().availableProcessors())
+                .build();
+    }
+
     public static void main(String... args) {
-        System.out.println("Hello world!");
-        System.out.println(MapDLProtocol.PROTOCOL);
+        Server server = new Server();
+
+        {
+            Scanner scanner = new Scanner(System.in);
+            while (!scanner.nextLine().trim().isEmpty())    {
+            }
+            scanner.close();
+        }
+
+        server.shutdown();
+    }
+
+    public void shutdown()  {
+        if (this.netServer.isRunning()) {
+            this.netServer.shutdown();
+        }
     }
 }

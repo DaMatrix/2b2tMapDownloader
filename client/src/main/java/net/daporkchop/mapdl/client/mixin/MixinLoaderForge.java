@@ -13,40 +13,48 @@
  *
  */
 
-package net.daporkchop.mapdl.client;
+package net.daporkchop.mapdl.client.mixin;
 
-import net.daporkchop.mapdl.client.util.ClientConstants;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
+import org.spongepowered.asm.launch.MixinBootstrap;
+import org.spongepowered.asm.mixin.MixinEnvironment;
+import org.spongepowered.asm.mixin.Mixins;
 
-@Mod(
-        modid = Client.MOD_ID,
-        name = Client.MOD_NAME,
-        version = Client.VERSION/*,
-        dependencies = "required-after:depmanager@[0.0.1,);"*/
-)
-public class Client implements ClientConstants {
-    public static final String MOD_ID = "client";
-    public static final String MOD_NAME = "2b2t Map Downloader";
-    public static final String VERSION = "0.0.1";
+import java.util.Map;
 
-    @Mod.Instance(MOD_ID)
-    public static Client INSTANCE;
+public class MixinLoaderForge implements IFMLLoadingPlugin {
+    public static boolean isObfuscatedEnvironment = false;
 
-    @Mod.EventHandler
-    public void preinit(FMLPreInitializationEvent event) {
-
+    public MixinLoaderForge() {
+        System.out.println("\n\n\nMapDL mixin init\n\n");
+        MixinBootstrap.init();
+        Mixins.addConfiguration("mixins.mapdl.json");
+        MixinEnvironment.getDefaultEnvironment().setObfuscationContext("searge");
+        System.out.println(MixinEnvironment.getDefaultEnvironment().getObfuscationContext());
     }
 
-    @Mod.EventHandler
-    public void init(FMLInitializationEvent event) {
-
+    @Override
+    public String[] getASMTransformerClass() {
+        return new String[0];
     }
 
-    @Mod.EventHandler
-    public void postinit(FMLPostInitializationEvent event) {
+    @Override
+    public String getModContainerClass() {
+        return null;
+    }
 
+    @Override
+    public String getSetupClass() {
+        return null;
+    }
+
+    @Override
+    public void injectData(Map<String, Object> data) {
+        isObfuscatedEnvironment = (boolean) (Boolean) data.get("runtimeDeobfuscationEnabled");
+    }
+
+    @Override
+    public String getAccessTransformerClass() {
+        return null;
     }
 }

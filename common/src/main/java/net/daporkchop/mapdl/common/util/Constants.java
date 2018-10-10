@@ -13,10 +13,9 @@
  *
  */
 
-package net.daporkchop.mapdl.common;
+package net.daporkchop.mapdl.common.util;
 
-/**
- * @author DaPorkchop_
- */
-public interface INetHandlerServer {
+public interface Constants {
+    int PROTOCOL_VERSION = 1;
+    int NETWORK_PORT = 28365;
 }

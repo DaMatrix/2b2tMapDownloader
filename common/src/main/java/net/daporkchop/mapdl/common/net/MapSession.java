@@ -13,40 +13,32 @@
  *
  */
 
-package net.daporkchop.mapdl.client;
+package net.daporkchop.mapdl.common.net;
 
-import net.daporkchop.mapdl.client.util.ClientConstants;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.daporkchop.lib.network.server.NetServer;
+import net.daporkchop.lib.network.session.BaseSession;
+import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.mapdl.common.util.Constants;
 
-@Mod(
-        modid = Client.MOD_ID,
-        name = Client.MOD_NAME,
-        version = Client.VERSION/*,
-        dependencies = "required-after:depmanager@[0.0.1,);"*/
-)
-public class Client implements ClientConstants {
-    public static final String MOD_ID = "client";
-    public static final String MOD_NAME = "2b2t Map Downloader";
-    public static final String VERSION = "0.0.1";
+/**
+ * @author DaPorkchop_
+ */
+public abstract class MapSession extends BaseSession implements Constants {
+    public MapSession(SocketWrapper socket) {
+        super(socket);
+    }
 
-    @Mod.Instance(MOD_ID)
-    public static Client INSTANCE;
-
-    @Mod.EventHandler
-    public void preinit(FMLPreInitializationEvent event) {
+    @Override
+    public void onConnect(NetServer server) {
 
     }
 
-    @Mod.EventHandler
-    public void init(FMLInitializationEvent event) {
-
+    public interface SessionCommon   {
     }
 
-    @Mod.EventHandler
-    public void postinit(FMLPostInitializationEvent event) {
+    public interface SessionClient extends SessionCommon {
+    }
 
+    public interface SessionServer extends SessionCommon {
     }
 }

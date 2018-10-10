@@ -20,13 +20,21 @@ buildscript {
             name = "forge"
             url = "https://files.minecraftforge.net/maven"
         }
+        maven {
+            name = 'SpongePowered'
+            url = 'http://repo.spongepowered.org/maven'
+        }
     }
     dependencies {
         classpath "net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT"
+        classpath 'org.spongepowered:mixingradle:0.4-SNAPSHOT'
+        classpath 'com.github.jengelman.gradle.plugins:shadow:1.2.3'
     }
 }
 
 apply plugin: "net.minecraftforge.gradle.forge"
+apply plugin: 'org.spongepowered.mixin'
+apply plugin: 'com.github.johnrengelman.shadow'
 
 version = '0.0.1'
 group = 'net.daporkchop.mapdl'
@@ -34,11 +42,13 @@ archivesBaseName = 'client'
 sourceCompatibility = 1.8
 
 minecraft {
-    version = '1.12.2-14.23.3.2678'
+    version = '1.12.2-14.23.5.2769'
     runDir = "run"
 
     mappings = "snapshot_20180502"
     makeObfSourceJar = false
+
+    coreMod = "net.daporkchop.mapdl.client.mixin.MixinLoaderForge"
 }
 
 configurations.all {
@@ -49,11 +59,18 @@ configurations.all {
 }
 
 repositories {
+    maven {
+        name = 'spongepowered-repo'
+        url = 'http://repo.spongepowered.org/maven/'
+    }
     mavenCentral()
 }
 
 dependencies {
     compile project(":common")
+    compile("org.spongepowered:mixin:0.7.10-SNAPSHOT") {
+        exclude module: "launchwrapper"
+    }
 }
 
 processResources {
@@ -68,5 +85,44 @@ processResources {
 
     from(sourceSets.main.resources.srcDirs) {
         exclude "mcmod.info"
+    }
+}
+
+mixin {
+    defaultObfuscationEnv searge
+    add sourceSets.main, "mixins.mapdl.refmap.json"
+}
+
+reobf {
+    shadowJar {
+        mappingType = 'SEARGE'
+        classpath = sourceSets.main.compileClasspath
+    }
+}
+
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
+shadowJar {
+    /*dependencies {
+        include(dependency('org.spongepowered:mixin'))
+    }*/
+    exclude 'dummyThing'
+    exclude 'LICENSE.txt'
+    classifier = 'full'
+}
+
+build.dependsOn(shadowJar)
+
+jar {
+    manifest {
+        attributes(
+                "MixinConfigs": 'mixins.mapdl.json',
+                "tweakClass": 'org.spongepowered.asm.launch.MixinTweaker',
+                "TweakOrder": 0,
+                'FMLCorePluginContainsFMLMod': 'true',
+                'FMLCorePlugin': 'nt.daporkchop.mapdl.client.mixin.MixinLoaderForge',
+                'ForceLoadAsMod': 'true',
+                'FMLAT': 'mapdl_at.cfg'
+        )
     }
 }
