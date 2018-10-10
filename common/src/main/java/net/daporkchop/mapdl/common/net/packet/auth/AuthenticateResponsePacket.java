@@ -13,36 +13,21 @@
  *
  */
 
-package net.daporkchop.mapdl.common.net;
+package net.daporkchop.mapdl.common.net.packet.auth;
 
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.PacketProtocol;
 import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.session.SocketWrapper;
-import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
-import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
-import net.daporkchop.mapdl.common.util.Constants;
 
-import java.util.function.Function;
-
-/**
- * @author DaPorkchop_
- */
-public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
+@NoArgsConstructor
+@AllArgsConstructor
+public class AuthenticateResponsePacket implements Message {
     @NonNull
-    public final Function<SocketWrapper, MapSession> sessionSupplier;
+    public Response response;
 
-    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
-        super("MapDL", PROTOCOL_VERSION);
-
-        this.registerPacket(0, LoginPacket.class, new LoginPacket.LoginSerializer(), new LoginPacket.LoginHandler());
-        this.registerPacket(1, RegisterPacket.class, new RegisterPacket.RegisterSerializer(), new RegisterPacket.RegisterHandler());
-
-        this.sessionSupplier = sessionSupplier;
-    }
-
-    @Override
-    public MapSession newSession(SocketWrapper base, boolean server) {
-        return this.sessionSupplier.apply(base);
+    public enum Response {
+        SUCCESS,
+        INVALID_CREDENTIALS
     }
 }

@@ -13,36 +13,30 @@
  *
  */
 
-package net.daporkchop.mapdl.common.net;
+package net.daporkchop.mapdl.common.net.packet.auth;
 
-import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.PacketProtocol;
-import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.session.SocketWrapper;
-import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
-import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
-import net.daporkchop.mapdl.common.util.Constants;
+import net.daporkchop.lib.network.protocol.packet.PacketHandler;
+import net.daporkchop.mapdl.common.net.MapSession;
 
-import java.util.function.Function;
-
-/**
- * @author DaPorkchop_
- */
-public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
-    @NonNull
-    public final Function<SocketWrapper, MapSession> sessionSupplier;
-
-    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
-        super("MapDL", PROTOCOL_VERSION);
-
-        this.registerPacket(0, LoginPacket.class, new LoginPacket.LoginSerializer(), new LoginPacket.LoginHandler());
-        this.registerPacket(1, RegisterPacket.class, new RegisterPacket.RegisterSerializer(), new RegisterPacket.RegisterHandler());
-
-        this.sessionSupplier = sessionSupplier;
+public class LoginPacket extends AuthenticatePacket {
+    public LoginPacket(String username, byte[] password) {
+        super(username, password);
     }
 
-    @Override
-    public MapSession newSession(SocketWrapper base, boolean server) {
-        return this.sessionSupplier.apply(base);
+    public LoginPacket() {
+        super();
+    }
+
+    public static class LoginSerializer extends AuthenticateSerializer<LoginPacket> {
+        public LoginSerializer() {
+            super(LoginPacket::new);
+        }
+    }
+
+    public static class LoginHandler implements PacketHandler<LoginPacket, MapSession> {
+        @Override
+        public void handle(LoginPacket packet, MapSession session) {
+            ((MapSession.ServerSession) session).handle(packet);
+        }
     }
 }

@@ -29,6 +29,8 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
 
     compile 'net.daporkchop.lib:network:0.0.1'
+    compile 'net.daporkchop.lib:network:0.2.0'
+    compile 'net.daporkchop.lib:binary:0.2.0'
 }
 
 publishing {

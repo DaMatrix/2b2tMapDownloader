@@ -15,9 +15,12 @@
 
 package net.daporkchop.mapdl.common.net;
 
+import lombok.NonNull;
 import net.daporkchop.lib.network.server.NetServer;
 import net.daporkchop.lib.network.session.BaseSession;
 import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
+import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
 import net.daporkchop.mapdl.common.util.Constants;
 
 /**
@@ -33,12 +36,15 @@ public abstract class MapSession extends BaseSession implements Constants {
 
     }
 
-    public interface SessionCommon   {
+    public interface CommonSession {
     }
 
-    public interface SessionClient extends SessionCommon {
+    public interface ClientSession extends CommonSession {
     }
 
-    public interface SessionServer extends SessionCommon {
+    public interface ServerSession extends CommonSession {
+        void handle(@NonNull LoginPacket packet);
+
+        void handle(@NonNull RegisterPacket packet);
     }
 }

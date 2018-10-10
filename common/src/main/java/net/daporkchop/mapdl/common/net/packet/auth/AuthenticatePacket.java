@@ -13,36 +13,51 @@
  *
  */
 
-package net.daporkchop.mapdl.common.net;
+package net.daporkchop.mapdl.common.net.packet.auth;
 
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.PacketProtocol;
+import net.daporkchop.lib.network.protocol.packet.BasePacket;
 import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.session.SocketWrapper;
-import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
-import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
-import net.daporkchop.mapdl.common.util.Constants;
+import net.daporkchop.lib.network.protocol.packet.PacketSerializer;
+import net.daporkchop.lib.network.util.Serializers;
+import org.apache.mina.core.buffer.IoBuffer;
 
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
-/**
- * @author DaPorkchop_
- */
-public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
+@AllArgsConstructor
+@NoArgsConstructor
+abstract class AuthenticatePacket implements Message {
     @NonNull
-    public final Function<SocketWrapper, MapSession> sessionSupplier;
+    public String username;
 
-    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
-        super("MapDL", PROTOCOL_VERSION);
+    @NonNull
+    public byte[] password;
 
-        this.registerPacket(0, LoginPacket.class, new LoginPacket.LoginSerializer(), new LoginPacket.LoginHandler());
-        this.registerPacket(1, RegisterPacket.class, new RegisterPacket.RegisterSerializer(), new RegisterPacket.RegisterHandler());
+    @AllArgsConstructor
+    static class AuthenticateSerializer<T extends AuthenticatePacket> implements PacketSerializer<T>    {
+        @NonNull
+        public final BiFunction<String, byte[], T> packetSupplier;
 
-        this.sessionSupplier = sessionSupplier;
-    }
+        @Override
+        public void encode(IoBuffer buffer, T packet) {
+            Serializers.writeUTF(packet.username, buffer);
+            Serializers.writeBytes(packet.password, buffer);
+        }
 
-    @Override
-    public MapSession newSession(SocketWrapper base, boolean server) {
-        return this.sessionSupplier.apply(base);
+        @Override
+        public T decode(IoBuffer buffer) {
+            return this.packetSupplier.apply(
+                    Serializers.readUTF(buffer),
+                    Serializers.readBytes(buffer)
+            );
+        }
+
+        @Override
+        public int getSize(T packet) {
+            return Serializers.stringLength(packet.username)
+                    + packet.password.length + 4;
+        }
     }
 }

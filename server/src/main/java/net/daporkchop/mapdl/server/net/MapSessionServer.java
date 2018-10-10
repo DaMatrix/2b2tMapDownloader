@@ -19,7 +19,7 @@ import net.daporkchop.lib.network.server.NetServer;
 import net.daporkchop.lib.network.session.SocketWrapper;
 import net.daporkchop.mapdl.common.net.MapSession;
 
-public class MapSessionServer extends MapSession implements MapSession.SessionServer {
+public class MapSessionServer extends MapSession implements MapSession.ServerSession {
     public MapSessionServer(SocketWrapper socket) {
         super(socket);
     }

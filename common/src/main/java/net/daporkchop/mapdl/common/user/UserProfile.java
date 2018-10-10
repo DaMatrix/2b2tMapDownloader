@@ -13,36 +13,33 @@
  *
  */
 
-package net.daporkchop.mapdl.common.net;
+package net.daporkchop.mapdl.common.user;
 
+import lombok.AllArgsConstructor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.PacketProtocol;
-import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.session.SocketWrapper;
-import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
-import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
-import net.daporkchop.mapdl.common.util.Constants;
+import net.daporkchop.lib.binary.Data;
+import net.daporkchop.lib.binary.stream.DataIn;
+import net.daporkchop.lib.binary.stream.DataOut;
 
-import java.util.function.Function;
+import java.io.IOException;
 
-/**
- * @author DaPorkchop_
- */
-public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
+@AllArgsConstructor
+public class UserProfile implements Data {
     @NonNull
-    public final Function<SocketWrapper, MapSession> sessionSupplier;
+    public String username;
 
-    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
-        super("MapDL", PROTOCOL_VERSION);
+    @NonNull
+    public byte[] password;
 
-        this.registerPacket(0, LoginPacket.class, new LoginPacket.LoginSerializer(), new LoginPacket.LoginHandler());
-        this.registerPacket(1, RegisterPacket.class, new RegisterPacket.RegisterSerializer(), new RegisterPacket.RegisterHandler());
-
-        this.sessionSupplier = sessionSupplier;
+    @Override
+    public void read(DataIn in) throws IOException {
+        this.username = in.readUTF();
+        this.password = in.readBytesSimple();
     }
 
     @Override
-    public MapSession newSession(SocketWrapper base, boolean server) {
-        return this.sessionSupplier.apply(base);
+    public void write(DataOut out) throws IOException {
+        out.writeUTF(this.username);
+        out.writeBytesSimple(this.password);
     }
 }
