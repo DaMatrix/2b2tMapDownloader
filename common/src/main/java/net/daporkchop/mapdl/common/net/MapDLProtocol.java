@@ -16,33 +16,38 @@
 package net.daporkchop.mapdl.common.net;
 
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.PacketProtocol;
-import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.lib.network.packet.protocol.PacketProtocol;
+import net.daporkchop.mapdl.common.net.packet.auth.AuthenticateResponsePacket;
 import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
 import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
 import net.daporkchop.mapdl.common.util.Constants;
 
-import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * @author DaPorkchop_
  */
-public class MapDLProtocol extends PacketProtocol<Message, MapSession> implements Constants {
+public class MapDLProtocol extends PacketProtocol<MapSession> implements Constants {
     @NonNull
-    public final Function<SocketWrapper, MapSession> sessionSupplier;
+    public final Supplier<MapSession> sessionSupplier;
 
-    public MapDLProtocol(@NonNull Function<SocketWrapper, MapSession> sessionSupplier) {
+    public MapDLProtocol(@NonNull Supplier<MapSession> sessionSupplier) {
         super("MapDL", PROTOCOL_VERSION);
-
-        this.registerPacket(0, LoginPacket.class, new LoginPacket.LoginSerializer(), new LoginPacket.LoginHandler());
-        this.registerPacket(1, RegisterPacket.class, new RegisterPacket.RegisterSerializer(), new RegisterPacket.RegisterHandler());
 
         this.sessionSupplier = sessionSupplier;
     }
 
     @Override
-    public MapSession newSession(SocketWrapper base, boolean server) {
-        return this.sessionSupplier.apply(base);
+    protected void registerPackets(PacketRegistry registry) {
+        registry.register(
+                new LoginPacket.LoginCodec(),
+                new RegisterPacket.RegisterCodec(),
+                new AuthenticateResponsePacket.AuthenticateResponseCodec()
+        );
+    }
+
+    @Override
+    public MapSession newSession() {
+        return this.sessionSupplier.get();
     }
 }

@@ -15,7 +15,7 @@
 
 package net.daporkchop.mapdl.common.net.packet.auth;
 
-import net.daporkchop.lib.network.protocol.packet.PacketHandler;
+import net.daporkchop.lib.network.packet.Codec;
 import net.daporkchop.mapdl.common.net.MapSession;
 
 public class LoginPacket extends AuthenticatePacket {
@@ -27,16 +27,15 @@ public class LoginPacket extends AuthenticatePacket {
         super();
     }
 
-    public static class LoginSerializer extends AuthenticateSerializer<LoginPacket> {
-        public LoginSerializer() {
-            super(LoginPacket::new);
-        }
-    }
-
-    public static class LoginHandler implements PacketHandler<LoginPacket, MapSession> {
+    public static class LoginCodec implements Codec<LoginPacket, MapSession>    {
         @Override
         public void handle(LoginPacket packet, MapSession session) {
             ((MapSession.ServerSession) session).handle(packet);
+        }
+
+        @Override
+        public LoginPacket newPacket() {
+            return new LoginPacket();
         }
     }
 }

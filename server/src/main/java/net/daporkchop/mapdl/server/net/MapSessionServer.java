@@ -15,17 +15,18 @@
 
 package net.daporkchop.mapdl.server.net;
 
-import net.daporkchop.lib.network.server.NetServer;
-import net.daporkchop.lib.network.session.SocketWrapper;
 import net.daporkchop.mapdl.common.net.MapSession;
+import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
+import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
 
 public class MapSessionServer extends MapSession implements MapSession.ServerSession {
-    public MapSessionServer(SocketWrapper socket) {
-        super(socket);
+    @Override
+    public void handle(LoginPacket packet) {
+
     }
 
     @Override
-    public void onConnect(NetServer server) {
-        super.onConnect(server);
+    public void handle(RegisterPacket packet) {
+
     }
 }

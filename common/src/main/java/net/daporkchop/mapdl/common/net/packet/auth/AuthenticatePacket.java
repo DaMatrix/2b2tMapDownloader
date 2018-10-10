@@ -18,46 +18,30 @@ package net.daporkchop.mapdl.common.net.packet.auth;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.packet.BasePacket;
-import net.daporkchop.lib.network.protocol.packet.Message;
-import net.daporkchop.lib.network.protocol.packet.PacketSerializer;
-import net.daporkchop.lib.network.util.Serializers;
-import org.apache.mina.core.buffer.IoBuffer;
+import net.daporkchop.lib.binary.stream.DataIn;
+import net.daporkchop.lib.binary.stream.DataOut;
+import net.daporkchop.lib.network.packet.Packet;
 
-import java.util.function.BiFunction;
+import java.io.IOException;
 
 @AllArgsConstructor
 @NoArgsConstructor
-abstract class AuthenticatePacket implements Message {
+abstract class AuthenticatePacket implements Packet {
     @NonNull
     public String username;
 
     @NonNull
     public byte[] password;
 
-    @AllArgsConstructor
-    static class AuthenticateSerializer<T extends AuthenticatePacket> implements PacketSerializer<T>    {
-        @NonNull
-        public final BiFunction<String, byte[], T> packetSupplier;
+    @Override
+    public void read(DataIn in) throws IOException {
+        this.username = in.readUTF();
+        this.password = in.readBytesSimple();
+    }
 
-        @Override
-        public void encode(IoBuffer buffer, T packet) {
-            Serializers.writeUTF(packet.username, buffer);
-            Serializers.writeBytes(packet.password, buffer);
-        }
-
-        @Override
-        public T decode(IoBuffer buffer) {
-            return this.packetSupplier.apply(
-                    Serializers.readUTF(buffer),
-                    Serializers.readBytes(buffer)
-            );
-        }
-
-        @Override
-        public int getSize(T packet) {
-            return Serializers.stringLength(packet.username)
-                    + packet.password.length + 4;
-        }
+    @Override
+    public void write(DataOut out) throws IOException {
+        out.writeUTF(this.username);
+        out.writeBytesSimple(this.password);
     }
 }

@@ -16,17 +16,20 @@
 package net.daporkchop.mapdl.server;
 
 import lombok.NonNull;
+import net.daporkchop.lib.crypto.CryptographySettings;
 import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherMode;
 import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherType;
-import net.daporkchop.lib.crypto.cipher.symmetric.padding.PaddingScheme;
-import net.daporkchop.lib.crypto.sig.ec.ECCurves;
+import net.daporkchop.lib.crypto.cipher.symmetric.padding.BlockCipherPadding;
+import net.daporkchop.lib.crypto.sig.ec.CurveType;
 import net.daporkchop.lib.encoding.compression.EnumCompression;
-import net.daporkchop.lib.network.server.NetServer;
-import net.daporkchop.lib.network.server.ServerBuilder;
+import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
+import net.daporkchop.lib.network.endpoint.server.PorkServer;
 import net.daporkchop.mapdl.common.net.MapDLProtocol;
+import net.daporkchop.mapdl.common.net.MapSession;
 import net.daporkchop.mapdl.server.net.MapSessionServer;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 
+import java.net.InetSocketAddress;
 import java.util.Scanner;
 
 /**
@@ -34,19 +37,20 @@ import java.util.Scanner;
  */
 public class Server implements ServerConstants {
     @NonNull
-    public final NetServer netServer;
+    public final PorkServer<MapSession> netServer;
 
+    @SuppressWarnings("unchecked")
     public Server() {
-        this.netServer = new ServerBuilder()
+        this.netServer = (PorkServer<MapSession>) new ServerBuilder()
                 .setCompression(EnumCompression.GZIP)
-                .setCurve(ECCurves.brainpoolp192r1)
-                .setEncryption(BlockCipherType.AES)
-                .setEncryptionMode(BlockCipherMode.CBC)
-                .setEncryptionPadding(PaddingScheme.PKCS7)
+                .setCryptographySettings(new CryptographySettings(
+                        CurveType.brainpoolp192r1,
+                        BlockCipherType.AES,
+                        BlockCipherMode.CBC,
+                        BlockCipherPadding.PKCS7
+                ))
+                .setAddress(new InetSocketAddress(NETWORK_PORT))
                 .setProtocol(new MapDLProtocol(MapSessionServer::new))
-                .setPort(NETWORK_PORT)
-                .setHandleWorkers(Runtime.getRuntime().availableProcessors())
-                .setReadWorkers(Runtime.getRuntime().availableProcessors())
                 .build();
     }
 
@@ -65,7 +69,7 @@ public class Server implements ServerConstants {
 
     public void shutdown()  {
         if (this.netServer.isRunning()) {
-            this.netServer.shutdown();
+            this.netServer.close("shutting down");
         }
     }
 }

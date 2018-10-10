@@ -16,9 +16,8 @@
 package net.daporkchop.mapdl.common.net;
 
 import lombok.NonNull;
-import net.daporkchop.lib.network.server.NetServer;
-import net.daporkchop.lib.network.session.BaseSession;
-import net.daporkchop.lib.network.session.SocketWrapper;
+import net.daporkchop.lib.network.conn.Session;
+import net.daporkchop.mapdl.common.net.packet.auth.AuthenticateResponsePacket;
 import net.daporkchop.mapdl.common.net.packet.auth.LoginPacket;
 import net.daporkchop.mapdl.common.net.packet.auth.RegisterPacket;
 import net.daporkchop.mapdl.common.util.Constants;
@@ -26,20 +25,12 @@ import net.daporkchop.mapdl.common.util.Constants;
 /**
  * @author DaPorkchop_
  */
-public abstract class MapSession extends BaseSession implements Constants {
-    public MapSession(SocketWrapper socket) {
-        super(socket);
-    }
-
-    @Override
-    public void onConnect(NetServer server) {
-
-    }
-
+public abstract class MapSession extends Session implements Constants {
     public interface CommonSession {
     }
 
     public interface ClientSession extends CommonSession {
+        void handle(@NonNull AuthenticateResponsePacket packet);
     }
 
     public interface ServerSession extends CommonSession {

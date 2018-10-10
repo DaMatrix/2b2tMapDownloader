@@ -18,16 +18,46 @@ package net.daporkchop.mapdl.common.net.packet.auth;
 import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.protocol.packet.Message;
+import net.daporkchop.lib.binary.stream.DataIn;
+import net.daporkchop.lib.binary.stream.DataOut;
+import net.daporkchop.lib.network.packet.Codec;
+import net.daporkchop.lib.network.packet.Packet;
+import net.daporkchop.mapdl.common.net.MapSession;
+
+import java.io.IOException;
 
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthenticateResponsePacket implements Message {
+public class AuthenticateResponsePacket implements Packet {
     @NonNull
     public Response response;
 
+    @Override
+    public void read(DataIn in) throws IOException {
+        this.response = Response.valueOf(in.readUTF());
+    }
+
+    @Override
+    public void write(DataOut out) throws IOException {
+        out.writeUTF(this.response.name());
+    }
+
     public enum Response {
         SUCCESS,
-        INVALID_CREDENTIALS
+        INVALID_CREDENTIALS,
+        USERNAME_TAKEN,
+        IP_BLOCKED
+    }
+
+    public static class AuthenticateResponseCodec implements Codec<AuthenticateResponsePacket, MapSession>  {
+        @Override
+        public void handle(AuthenticateResponsePacket packet, MapSession session) {
+            ((MapSession.ClientSession) session).handle(packet);
+        }
+
+        @Override
+        public AuthenticateResponsePacket newPacket() {
+            return new AuthenticateResponsePacket();
+        }
     }
 }
