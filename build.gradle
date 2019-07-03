@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2018 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2019 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -14,31 +14,43 @@
  */
 
 plugins {
-    id 'io.franzbecker.gradle-lombok' version '1.14' apply false
-}
-
-group 'net.daporkchop.mapdl'
-version '0.0.1'
-
-apply plugin: 'java'
-
-sourceCompatibility = 1.8
-
-repositories {
-    mavenCentral()
+    id "io.franzbecker.gradle-lombok" version "1.14" apply false
 }
 
 allprojects {
-    apply plugin: 'io.franzbecker.gradle-lombok'
+    group "net.daporkchop.mapdl"
+    version "0.0.1"
 
-    repositories {
-        mavenCentral()
-        maven {
-            url 'https://maven.daporkchop.net/'
-        }
+    ext {
+        //Minecraft-specific stuff
+        mcVersion = "1.12.2"
+        forgeVersion = "14.23.5.2836"
+        mcpVersion = "stable_39"
+
+        //java stuff
+        jgitVersion = "5.4.0.201906121030-r"
+        junitVersion = "4.12"
+        porklibVersion = "0.4.0-SNAPSHOT"
     }
 }
 
-dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+subprojects {
+    apply plugin: "java"
+    apply plugin: "io.franzbecker.gradle-lombok"
+
+    sourceCompatibility = 1.8
+    archivesBaseName = project.name
+
+    repositories {
+        mavenLocal()
+        maven {
+            name = "DaPorkchop_"
+            url = "https://maven.daporkchop.net/"
+        }
+        mavenCentral()
+    }
+
+    dependencies {
+        testCompile "junit:junit:$junitVersion"
+    }
 }

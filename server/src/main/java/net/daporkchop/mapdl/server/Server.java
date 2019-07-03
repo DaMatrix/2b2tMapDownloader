@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2018 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2019 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -15,58 +15,35 @@
 
 package net.daporkchop.mapdl.server;
 
-import lombok.NonNull;
-import net.daporkchop.lib.crypto.CryptographySettings;
-import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherMode;
-import net.daporkchop.lib.crypto.cipher.symmetric.BlockCipherType;
-import net.daporkchop.lib.crypto.cipher.symmetric.padding.BlockCipherPadding;
-import net.daporkchop.lib.crypto.sig.ec.CurveType;
-import net.daporkchop.lib.db.PorkDB;
-import net.daporkchop.lib.encoding.compression.EnumCompression;
-import net.daporkchop.lib.math.vector.i.Vec2i;
-import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
-import net.daporkchop.lib.network.endpoint.server.PorkServer;
-import net.daporkchop.mapdl.common.map.ChunkData;
-import net.daporkchop.mapdl.common.net.MapDLProtocol;
-import net.daporkchop.mapdl.common.net.MapSession;
-import net.daporkchop.mapdl.common.user.UserProfile;
-import net.daporkchop.mapdl.server.net.MapSessionServer;
+import net.daporkchop.lib.common.misc.file.PFiles;
+import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 
-import java.net.InetSocketAddress;
+import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
 /**
  * @author DaPorkchop_
  */
 public class Server implements ServerConstants {
-    @NonNull
-    public final PorkServer<MapSession> netServer;
-
-    @NonNull
-    public final PorkDB<String, UserProfile> userDB;
-
-    @NonNull
-    public final PorkDB<Vec2i, ChunkData> mapDB;
-
-    @SuppressWarnings("unchecked")
-    public Server() {
-        this.netServer = (PorkServer<MapSession>) new ServerBuilder()
-                .setCompression(EnumCompression.GZIP)
-                .setCryptographySettings(new CryptographySettings(
-                        CurveType.brainpoolp192r1,
-                        BlockCipherType.AES,
-                        BlockCipherMode.CBC,
-                        BlockCipherPadding.PKCS7
-                ))
-                .setAddress(new InetSocketAddress(NETWORK_PORT))
-                .setProtocol(new MapDLProtocol(MapSessionServer::new))
-                .build();
-
-
-    }
-
     public static void main(String... args) {
+        { //init logging
+            File logDir = new File("./logs/");
+            PFiles.ensureDirectoryExists(logDir);
+            File logFile = new File(logDir, "latest.log");
+            if (logFile.exists() && !logFile.renameTo(new File(logDir, String.format(
+                        "%s.log",
+                        new SimpleDateFormat("yy.MM.dd HH.mm.ss").format(Instant.ofEpochMilli(logFile.lastModified()))
+                )))) {
+                throw new IllegalStateException("Unable to rename old log file!");
+            }
+            logger.enableANSI().addFile(logFile, LogAmount.DEBUG);
+        }
+
         Server server = new Server();
 
         {
@@ -80,8 +57,5 @@ public class Server implements ServerConstants {
     }
 
     public void shutdown()  {
-        if (this.netServer.isRunning()) {
-            this.netServer.close("shutting down");
-        }
     }
 }

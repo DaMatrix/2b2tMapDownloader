@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2018 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2019 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -15,7 +15,6 @@
 
 package net.daporkchop.mapdl.client;
 
-import net.daporkchop.mapdl.client.util.ClientConstants;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
@@ -24,10 +23,9 @@ import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 @Mod(
         modid = Client.MOD_ID,
         name = Client.MOD_NAME,
-        version = Client.VERSION/*,
-        dependencies = "required-after:depmanager@[0.0.1,);"*/
+        version = Client.VERSION
 )
-public class Client implements ClientConstants {
+public class Client {
     public static final String MOD_ID = "client";
     public static final String MOD_NAME = "2b2t Map Downloader";
     public static final String VERSION = "0.0.1";

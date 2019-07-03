@@ -1,8 +1,0 @@
-{
-  "required": true,
-  "compatibilityLevel": "JAVA_8",
-  "package": "net.daporkchop.mapdl.client.mixin",
-  "refmap": "mixins.mapdl.refmap.json",
-  "client": [
-  ]
-}
