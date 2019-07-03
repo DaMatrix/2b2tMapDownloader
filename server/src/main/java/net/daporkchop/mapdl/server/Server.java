@@ -15,47 +15,66 @@
 
 package net.daporkchop.mapdl.server;
 
+import lombok.Getter;
+import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.mapdl.server.util.ServerConstants;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
 import java.io.File;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.format.DateTimeFormatter;
-import java.util.Scanner;
+import java.io.IOException;
 
 /**
  * @author DaPorkchop_
  */
+@Getter
+@Accessors(fluent = true)
 public class Server implements ServerConstants {
     public static void main(String... args) {
         { //init logging
-            File logDir = new File("./logs/");
+            File logDir = new File("logs/");
             PFiles.ensureDirectoryExists(logDir);
             File logFile = new File(logDir, "latest.log");
-            if (logFile.exists() && !logFile.renameTo(new File(logDir, String.format(
+            /*if (logFile.exists() && !logFile.renameTo(new File(logDir, String.format(
                         "%s.log",
-                        new SimpleDateFormat("yy.MM.dd HH.mm.ss").format(Instant.ofEpochMilli(logFile.lastModified()))
+                        new SimpleDateFormat("yy.MM.dd HH.mm.ss").format(Instant.ofEpochMilli(logFile.lastModified()).)
                 )))) {
                 throw new IllegalStateException("Unable to rename old log file!");
-            }
+            }*/
             logger.enableANSI().addFile(logFile, LogAmount.DEBUG);
         }
 
-        Server server = new Server();
-
-        {
-            Scanner scanner = new Scanner(System.in);
-            while (!scanner.nextLine().trim().isEmpty())    {
-            }
-            scanner.close();
+        try {
+            new Server();
+        } catch (IOException | GitAPIException e)   {
+            throw new RuntimeException(e);
         }
-
-        server.shutdown();
     }
 
-    public void shutdown()  {
+    protected final File repoDir;
+    protected final Git  git;
+
+    private Server() throws IOException, GitAPIException {
+        this.repoDir = new File("repo/");
+        if (!this.repoDir.exists()) {
+            logger.info("Creating repo...");
+            try (Git git = Git.init().setDirectory(this.repoDir).call())    {
+                logger.success("Repo created.");
+            }
+        }
+        try (Git git = this.git = Git.open(this.repoDir)) {
+            logger.success("Repository opened.");
+
+            RevWalk walk = new RevWalk(git.getRepository());
+            walk.
+        }
+    }
+
+    public void shutdown() {
     }
 }
