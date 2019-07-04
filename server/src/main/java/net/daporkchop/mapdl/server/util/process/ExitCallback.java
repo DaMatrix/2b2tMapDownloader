@@ -13,12 +13,28 @@
  *
  */
 
-apply plugin: "application"
+package net.daporkchop.mapdl.server.util.process;
 
-mainClassName = "net.daporkchop.mapdl.server.Server"
+import io.netty.buffer.ByteBuf;
 
-dependencies {
-    compile project(":common")
-
-    //compile "org.eclipse.jgit:org.eclipse.jgit:$jgitVersion"
+/**
+ * Called after a process launched by {@link ProcessLauncher} exits.
+ *
+ * @author DaPorkchop_
+ */
+@FunctionalInterface
+public interface ExitCallback {
+    /**
+     * Called after a process launched by {@link ProcessLauncher} exits.
+     * <p>
+     * Note: both of the buffers will be released as soon as this method returns, make sure to retain them if needed!
+     * <p>
+     * If the {@link ProcessLauncher} is closed before the process exits, the process will be terminated and this callback will be invoked with both
+     * stdout and stderr parameters being {@code null}, and exitCode being {@link Integer#MIN_VALUE}.
+     *
+     * @param stdout   the contents of the process' standard output (stdout)
+     * @param stderr   the contents of the process' standard error (stderr)
+     * @param exitCode the process' exit code
+     */
+    void onExit(ByteBuf stdout, ByteBuf stderr, int exitCode);
 }

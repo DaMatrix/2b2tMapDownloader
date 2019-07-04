@@ -20,14 +20,11 @@ import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.mapdl.server.util.ServerConstants;
-import org.eclipse.jgit.api.Git;
-import org.eclipse.jgit.api.errors.GitAPIException;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 
 /**
  * @author DaPorkchop_
@@ -51,27 +48,23 @@ public class Server implements ServerConstants {
 
         try {
             new Server();
-        } catch (IOException | GitAPIException e)   {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
     protected final File repoDir;
-    protected final Git  git;
 
-    private Server() throws IOException, GitAPIException {
+    private Server() throws IOException {
         this.repoDir = new File("repo/");
         if (!this.repoDir.exists()) {
             logger.info("Creating repo...");
-            try (Git git = Git.init().setDirectory(this.repoDir).call())    {
-                logger.success("Repo created.");
-            }
-        }
-        try (Git git = this.git = Git.open(this.repoDir)) {
-            logger.success("Repository opened.");
-
-            RevWalk walk = new RevWalk(git.getRepository());
-            walk.
+            this.processLauncher.submit(
+                    (stdout, stderr, exitCode) -> logger.success(stdout.toString(StandardCharsets.UTF_8)),
+                    PFiles.ensureDirectoryExists(this.repoDir),
+                    "git", "init"
+            );
         }
     }
 

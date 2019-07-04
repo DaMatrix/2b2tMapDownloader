@@ -23,7 +23,7 @@ import net.daporkchop.lib.binary.Data;
 import net.daporkchop.lib.binary.UTF8;
 import net.daporkchop.lib.binary.stream.DataIn;
 import net.daporkchop.lib.binary.stream.DataOut;
-import org.eclipse.jgit.revwalk.RevCommit;
+import net.daporkchop.lib.encoding.basen.Base58;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -36,10 +36,10 @@ import java.util.UUID;
 @Setter
 @Accessors(fluent = true, chain = true)
 public class CommitData implements Data {
-    public static CommitData from(@NonNull RevCommit commit) {
+    public static CommitData parse(@NonNull String encoded)    {
         try {
             CommitData data = new CommitData();
-            data.read(DataIn.wrap(ByteBuffer.wrap(commit.getFullMessage().getBytes(UTF8.utf8))));
+            data.read(DataIn.wrap(ByteBuffer.wrap(Base58.decodeBase58(encoded))));
             return data;
         } catch (IOException e) {
             throw new RuntimeException(e);
