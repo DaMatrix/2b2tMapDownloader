@@ -19,12 +19,18 @@ import lombok.Getter;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.logging.LogAmount;
+import net.daporkchop.lib.network.endpoint.PServer;
+import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
+import net.daporkchop.lib.network.tcp.TCPEngine;
+import net.daporkchop.mapdl.server.http.HTTPSession;
+import net.daporkchop.mapdl.server.http.LightHTTPFramer;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
 
 /**
  * @author DaPorkchop_
@@ -46,15 +52,24 @@ public class Server implements ServerConstants {
             logger.enableANSI().addFile(logFile, LogAmount.DEBUG);
         }
 
+        Server server;
         try {
-            new Server();
+            server = new Server();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+
+        try (Scanner s = new Scanner(System.in))    {
+            s.nextLine();
+        }
+
+        server.shutdown();
     }
 
     protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
-    protected final File repoDir;
+    protected final File                 repoDir;
+    protected final PServer<HTTPSession> httpServer;
+    protected final PServer<?> gameServer = null; //TODO
 
     private Server() throws IOException {
         this.repoDir = new File("repo/");
@@ -66,8 +81,14 @@ public class Server implements ServerConstants {
                     "git", "init"
             );
         }
+        this.httpServer = ServerBuilder.of(HTTPSession::new)
+                                       .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())
+                                       .bind("0.0.0.0", 8080)
+                                       .build();
     }
 
     public void shutdown() {
+        this.processLauncher.shutdown();
+        this.httpServer.closeAsync().addListener(() -> logger.success("HTTP server closed."));
     }
 }
