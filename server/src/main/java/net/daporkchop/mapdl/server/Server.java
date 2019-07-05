@@ -23,15 +23,16 @@ import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.lib.network.endpoint.PServer;
 import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
 import net.daporkchop.lib.network.tcp.TCPEngine;
-import net.daporkchop.mapdl.server.http.HTTPSession;
-import net.daporkchop.mapdl.server.http.LightHTTPFramer;
+import net.daporkchop.mapdl.server.net.game.FullHTTPFramer;
+import net.daporkchop.mapdl.server.net.game.ServerSession;
+import net.daporkchop.mapdl.server.net.web.HTTPSession;
+import net.daporkchop.mapdl.server.net.web.LightHTTPFramer;
 import net.daporkchop.mapdl.server.repo.History;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 /**
@@ -72,7 +73,7 @@ public class Server implements ServerConstants {
     protected final File                 root;
     protected final History history;
     protected final PServer<HTTPSession> httpServer;
-    protected final PServer<?> gameServer = null; //TODO
+    protected final PServer<ServerSession> gameServer;
 
     private Server(@NonNull File root) throws IOException {
         this.root = root;
@@ -85,6 +86,12 @@ public class Server implements ServerConstants {
                                        .bind("0.0.0.0", 8080)
                                        .build();
         logger.success("Web server started.");
+        logger.info("Starting game server...");
+        this.gameServer = ServerBuilder.of(ServerSession::new)
+                                       .engine(TCPEngine.builder().framerFactory(FullHTTPFramer::new).build())
+                                       .bind("0.0.0.0", 8081)
+                                       .build();
+        logger.success("Game server started.");
     }
 
     public void shutdown() {

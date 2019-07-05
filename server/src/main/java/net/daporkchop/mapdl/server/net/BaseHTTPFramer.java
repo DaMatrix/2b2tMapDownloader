@@ -13,24 +13,23 @@
  *
  */
 
-package net.daporkchop.mapdl.server.http;
+package net.daporkchop.mapdl.server.net;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
 import lombok.NonNull;
-import net.daporkchop.lib.logging.Logging;
+import net.daporkchop.lib.network.session.AbstractUserSession;
 import net.daporkchop.lib.network.tcp.frame.Framer;
 import net.daporkchop.lib.network.util.PacketMetadata;
+import net.daporkchop.mapdl.server.net.web.HTTPSession;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 
 import java.util.List;
 
 /**
- * A lightweight HTTP message framer.
- *
  * @author DaPorkchop_
  */
-public class LightHTTPFramer implements Framer<HTTPSession>, ServerConstants {
+public abstract class BaseHTTPFramer<S extends AbstractUserSession<S>> implements Framer<S>, ServerConstants {
     protected static final int MAX_BUF_SIZE = 4096;
 
     protected static boolean startsWith(@NonNull ByteBuf buf, @NonNull String s) {
@@ -60,45 +59,19 @@ public class LightHTTPFramer implements Framer<HTTPSession>, ServerConstants {
     }
 
     protected ByteBuf buf;
-    protected boolean readPrefix;
-    protected boolean readHeaders;
 
     @Override
-    public void received(@NonNull HTTPSession session, @NonNull ByteBuf msg, @NonNull UnpackCallback callback) {
-        if (this.readHeaders) {
-            throw new IllegalStateException("Already read headers!");
-        } else if (this.buf.writerIndex() + msg.readableBytes() > MAX_BUF_SIZE) {
-            throw new IllegalStateException("Too much data!");
-        } else {
-            this.buf.writeBytes(msg);
-            if (!this.readPrefix && this.buf.writerIndex() >= 4) {
-                if (startsWith(this.buf, "GET ")) {
-                    this.readPrefix = true;
-                } else {
-                    throw new IllegalStateException("Not a GET request!");
-                }
-            }
-            if (this.readPrefix && !this.readHeaders && endsWith(this.buf, "\r\n\r\n")) {
-                this.readHeaders = true;
-                callback.add(this.buf);
-                this.release(session);
-            }
-        }
-    }
-
-    @Override
-    public void sending(@NonNull HTTPSession session, @NonNull ByteBuf msg, @NonNull PacketMetadata metadata, @NonNull List<ByteBuf> frames) {
+    public void sending(@NonNull S session, @NonNull ByteBuf msg, @NonNull PacketMetadata metadata, @NonNull List<ByteBuf> frames) {
         frames.add(msg);
     }
 
     @Override
-    public void init(@NonNull HTTPSession session) {
+    public void init(@NonNull S session) {
         this.buf = PooledByteBufAllocator.DEFAULT.ioBuffer(16, MAX_BUF_SIZE);
-        this.readPrefix = this.readHeaders = false;
     }
 
     @Override
-    public void release(@NonNull HTTPSession session) {
+    public void release(@NonNull S session) {
         if (this.buf != null) {
             this.buf.release();
             this.buf = null;

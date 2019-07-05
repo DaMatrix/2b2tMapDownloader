@@ -13,24 +13,26 @@
  *
  */
 
-package net.daporkchop.mapdl.server.http;
+package net.daporkchop.mapdl.server.net;
 
-import java.nio.charset.StandardCharsets;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
 /**
- * Some pre-encoded HTML tags as byte arrays for Speed(tm).
- *
  * @author DaPorkchop_
  */
-public interface EncodedHTML {
-    byte[] TAG_HTML_OPEN = "<html>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_HTML_CLOSE = "</html>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BODY_OPEN = "<body>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BODY_CLOSE = "</body>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_CODE_OPEN = "<code>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_CODE_CLOSE = "</code>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BR = "<br>".getBytes(StandardCharsets.UTF_8);
+@RequiredArgsConstructor
+@Getter
+@Accessors(fluent = true)
+public enum HTTPStatus {
+    OK("OK", 200),
+    NOT_FOUND("Not Found", 404),
+    INTERNAL_SERVER_ERROR("Internal Server Error", 500)
+    ;
 
-    byte[] INTERNAL_SERVER_ERROR_PREFIX = "<html><body><h1>500 Internal Server Error</h1>".getBytes(StandardCharsets.UTF_8);
-    byte[] INTERNAL_SERVER_ERROR_FULL = "<html><body><h1>500 Internal Server Error</h1></body></html>".getBytes(StandardCharsets.UTF_8);
+    @NonNull
+    private final String message;
+    private final int code;
 }

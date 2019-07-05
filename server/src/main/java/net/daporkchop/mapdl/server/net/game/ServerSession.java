@@ -13,58 +13,33 @@
  *
  */
 
-package net.daporkchop.mapdl.server.repo;
+package net.daporkchop.mapdl.server.net.game;
 
-import lombok.AccessLevel;
-import lombok.Getter;
+import io.netty.buffer.ByteBuf;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.Accessors;
-import net.daporkchop.lib.binary.Data;
 import net.daporkchop.lib.binary.stream.DataIn;
-import net.daporkchop.lib.binary.stream.DataOut;
-import net.daporkchop.lib.encoding.basen.Base58;
+import net.daporkchop.lib.network.session.AbstractUserSession;
+import net.daporkchop.lib.network.session.encode.SendCallback;
+import net.daporkchop.lib.network.util.PacketMetadata;
+import net.daporkchop.mapdl.server.net.BaseHTTPSession;
+import net.daporkchop.mapdl.server.net.HTTPMethod;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.UUID;
-import java.util.regex.Matcher;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
+ * A session to a client (using the client mod) on the server side.
+ *
  * @author DaPorkchop_
  */
-@RequiredArgsConstructor
-@Getter
-@Setter(AccessLevel.PROTECTED)
-@Accessors(fluent = true, chain = true)
-public class Commit implements Data {
+public class ServerSession extends BaseHTTPSession<ServerSession> {
     @NonNull
-    protected final String hash;
-    @NonNull
-    protected final UUID   author;
-    protected final long   time;
-    @NonNull
-    protected final String relativeDate;
-
-    protected int  version;
-    protected UUID acceptor;
-    protected long totalChunks;
-    protected long newChunks;
+    protected HTTPMethod method;
+    protected String url;
+    protected Map<String, String> headers = new HashMap<>();
 
     @Override
-    public void read(@NonNull DataIn in) throws IOException {
-        this.version(in.readVarInt())
-            .acceptor(new UUID(in.readLong(), in.readLong()))
-            .totalChunks(in.readVarLong())
-            .newChunks(in.readVarLong());
-    }
-
-    @Override
-    public void write(@NonNull DataOut out) throws IOException {
-        out.writeVarInt(this.version)
-           .writeLong(this.acceptor.getMostSignificantBits()).writeLong(this.acceptor.getLeastSignificantBits())
-           .writeVarLong(this.totalChunks)
-           .writeVarLong(this.newChunks);
+    public void onReceive(@NonNull DataIn in, @NonNull PacketMetadata metadata) throws IOException {
     }
 }

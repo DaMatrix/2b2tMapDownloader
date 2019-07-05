@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.mapdl.server.http;
+package net.daporkchop.mapdl.server.net;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -26,13 +26,12 @@ import lombok.experimental.Accessors;
 @RequiredArgsConstructor
 @Getter
 @Accessors(fluent = true)
-public enum HTTPStatus {
-    OK("OK", 200),
-    NOT_FOUND("Not Found", 404),
-    INTERNAL_SERVER_ERROR("Internal Server Error", 500)
-    ;
+public enum ContentType {
+    TEXT_HTML("text/html"),
+    TEXT_PLAIN("text/plain"),
+    IMAGE_PNG("image/png"),
+    APPLICATION_JSON("application/json");
 
     @NonNull
-    private final String message;
-    private final int code;
+    private final String mimeType;
 }

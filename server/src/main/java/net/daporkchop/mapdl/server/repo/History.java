@@ -15,6 +15,7 @@
 
 package net.daporkchop.mapdl.server.repo;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
@@ -28,12 +29,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -49,12 +52,15 @@ import java.util.regex.Pattern;
 @Accessors(fluent = true)
 public class History implements ServerConstants {
     protected static final Pattern COMMIT_PARSE_PATTERN = Pattern.compile("([0-9a-f]{40}) (\\S+) '([^']+)' '([^']+)' ([^\"]+)");
+    protected static final Pattern TIME_FIX_PATTERN = Pattern.compile("([0-9]{4}-[0-9]{2}-[0-9]{2}) ([0-9]{2}:[0-9]{2}:[0-9]{2}) (.[0-9]{2})([0-9]{2})");
 
     protected final Server server;
     protected final File   root;
-    protected final ReadWriteLock lock = new ReentrantReadWriteLock();
-    protected final Map<String, Commit> lookup = new HashMap<>();
-    protected final List<Commit> commits = new ArrayList<>();
+    @Getter(AccessLevel.NONE)
+    protected final ReadWriteLock              lock       = new ReentrantReadWriteLock();
+    protected final Map<String, Commit>        hashLookup = new HashMap<>();
+    protected final NavigableMap<Long, Commit> timeLookup = new TreeMap<>();
+    protected final List<Commit>               commits    = new ArrayList<>();
 
     public History(@NonNull Server server) {
         this(server, new File(server.root(), "repo/"));
@@ -79,29 +85,38 @@ public class History implements ServerConstants {
     public void refresh() {
         this.server.processLauncher().submit(
                 (stdout, stderr, exitCode) -> {
-                    if (exitCode != 0)  {
-                        throw new IllegalStateException(String.format("Log command exited with status: %d", exitCode));
+                    switch (exitCode) {
+                        case 128:
+                            this.hashLookup.clear();
+                            this.timeLookup.clear();
+                            this.commits.clear();
+                            break;
+                        case 0:
+                            this.doRefresh(stdout.toString(StandardCharsets.UTF_8));
+                            break;
+                        default:
+                            throw new IllegalStateException(String.format("Log command exited with status: %d", exitCode));
                     }
-                        this.doRefresh(stdout.toString(StandardCharsets.UTF_8));
                 },
                 this.root,
                 "git", "log", "--pretty=format:\"%H %an '%ad' '%ar' %s\"", "--date=iso"
         );
     }
 
-    protected void doRefresh(@NonNull String data)  {
+    protected void doRefresh(@NonNull String data) {
         this.lock.writeLock().lock();
         try {
-            this.lookup.clear();
+            this.hashLookup.clear();
+            this.timeLookup.clear();
             this.commits.clear();
 
             List<Commit> tempList = new LinkedList<>(); //this makes inserting to the front of the list much faster than with arraylist
             Matcher matcher = COMMIT_PARSE_PATTERN.matcher(data);
-            while (matcher.find())  {
+            while (matcher.find()) {
                 Commit commit = new Commit(
                         matcher.group(1),
                         UUID.fromString(matcher.group(2)),
-                        matcher.group(3),
+                        OffsetDateTime.parse(TIME_FIX_PATTERN.matcher(matcher.group(3)).replaceAll("$1T$2$3:$4")).toInstant().toEpochMilli(),
                         matcher.group(4)
                 );
                 try (DataIn in = DataIn.wrap(ByteBuffer.wrap(Base58.decodeBase58(matcher.group(5))))) {
@@ -113,7 +128,8 @@ public class History implements ServerConstants {
             }
 
             this.commits.addAll(tempList);
-            tempList.forEach(commit -> this.lookup.put(commit.hash, commit));
+            tempList.forEach(commit -> this.hashLookup.put(commit.hash, commit));
+            tempList.forEach(commit -> this.timeLookup.put(commit.time, commit));
         } finally {
             this.lock.writeLock().unlock();
         }

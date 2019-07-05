@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.mapdl.server.http;
+package net.daporkchop.mapdl.server.net.web;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
@@ -22,11 +22,13 @@ import lombok.NonNull;
 import net.daporkchop.lib.binary.stream.DataIn;
 import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.logging.Logger;
-import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.lib.network.session.AbstractUserSession;
 import net.daporkchop.lib.network.session.encode.SendCallback;
 import net.daporkchop.lib.network.util.PacketMetadata;
 import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.mapdl.server.net.BaseHTTPSession;
+import net.daporkchop.mapdl.server.net.ContentType;
+import net.daporkchop.mapdl.server.net.HTTPStatus;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 
 import java.io.BufferedReader;
@@ -39,7 +41,7 @@ import java.nio.charset.StandardCharsets;
  *
  * @author DaPorkchop_
  */
-public class HTTPSession extends AbstractUserSession<HTTPSession> implements ServerConstants, EncodedHTML {
+public class HTTPSession extends BaseHTTPSession<HTTPSession> implements ServerConstants, EncodedHTML {
     protected static final long SENT_OFFSET = PUnsafe.pork_getOffset(HTTPSession.class, "sent");
 
     private volatile int sent = 0;
@@ -68,17 +70,6 @@ public class HTTPSession extends AbstractUserSession<HTTPSession> implements Ser
             this.logger().alert(e);
         }
         this.closeAsync();
-    }
-
-    @Override
-    public void encodeMessage(@NonNull Object msg, @NonNull PacketMetadata metadata, @NonNull SendCallback callback) {
-        if (msg instanceof String)  {
-            callback.send(((String) msg).getBytes(StandardCharsets.UTF_8), metadata);
-        } else if (msg instanceof ByteBuf || msg instanceof byte[]) {
-            callback.send(msg, metadata);
-        } else {
-            throw new IllegalArgumentException(PorkUtil.className(msg));
-        }
     }
 
     public void respond(@NonNull String body, @NonNull HTTPStatus status)   {

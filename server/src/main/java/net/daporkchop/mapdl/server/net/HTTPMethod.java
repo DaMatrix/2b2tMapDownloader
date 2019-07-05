@@ -13,25 +13,12 @@
  *
  */
 
-package net.daporkchop.mapdl.server.http;
-
-import lombok.Getter;
-import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.experimental.Accessors;
+package net.daporkchop.mapdl.server.net;
 
 /**
  * @author DaPorkchop_
  */
-@RequiredArgsConstructor
-@Getter
-@Accessors(fluent = true)
-public enum ContentType {
-    TEXT_HTML("text/html"),
-    TEXT_PLAIN("text/plain"),
-    IMAGE_PNG("image/png"),
-    APPLICATION_JSON("application/json");
-
-    @NonNull
-    private final String mimeType;
+public enum HTTPMethod {
+    GET,
+    POST;
 }
