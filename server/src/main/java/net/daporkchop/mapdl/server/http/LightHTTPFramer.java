@@ -18,6 +18,7 @@ package net.daporkchop.mapdl.server.http;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
 import lombok.NonNull;
+import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.lib.network.tcp.frame.Framer;
 import net.daporkchop.lib.network.util.PacketMetadata;
 
@@ -28,12 +29,62 @@ import java.util.List;
  *
  * @author DaPorkchop_
  */
-public class LightHTTPFramer implements Framer<HTTPSession> {
+public class LightHTTPFramer implements Framer<HTTPSession>, Logging {
+    protected static final int MAX_BUF_SIZE = 4096;
+
+    protected static boolean startsWith(@NonNull ByteBuf buf, @NonNull String s) {
+        if (buf.writerIndex() >= s.length()) {
+            for (int i = s.length() - 1; i >= 0; i--) {
+                if (buf.getByte(i) != s.charAt(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+    protected static boolean endsWith(@NonNull ByteBuf buf, @NonNull String s) {
+        int len = buf.writerIndex();
+        if (len >= s.length()) {
+            for (int i = s.length() - 1; i >= 0; i--) {
+                if (buf.getByte(len - i) != s.charAt(i)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
     protected ByteBuf buf;
+    protected boolean readPrefix;
+    protected boolean readHeaders;
 
     @Override
     public void received(@NonNull HTTPSession session, @NonNull ByteBuf msg, @NonNull UnpackCallback callback) {
-        callback.add(msg);
+        logger.debug("Received %d bytes!", msg.readableBytes());
+        if (this.readHeaders) {
+            throw new IllegalStateException("Already read headers!");
+        } else if (this.buf.writerIndex() + msg.readableBytes() > MAX_BUF_SIZE) {
+            throw new IllegalStateException("Too much data!");
+        } else {
+            logger.debug("Received %d bytes!", msg.readableBytes());
+            this.buf.writeBytes(msg);
+            if (!this.readPrefix && this.buf.writerIndex() >= 4) {
+                logger.debug("Prefix readable!");
+                if (startsWith(this.buf, "GET ")) {
+                    this.readPrefix = true;
+                } else {
+                    throw new IllegalStateException("Not a GET request!");
+                }
+            }
+            if (this.readPrefix && !this.readHeaders && endsWith(this.buf, "\r\n\r\n")) {
+                this.readHeaders = true;
+                callback.add(this.buf);
+                this.release(session);
+            }
+        }
     }
 
     @Override
@@ -43,7 +94,8 @@ public class LightHTTPFramer implements Framer<HTTPSession> {
 
     @Override
     public void init(@NonNull HTTPSession session) {
-        this.buf = PooledByteBufAllocator.DEFAULT.ioBuffer(16, 1024);
+        this.buf = PooledByteBufAllocator.DEFAULT.ioBuffer(16, MAX_BUF_SIZE);
+        this.readPrefix = this.readHeaders = false;
     }
 
     @Override

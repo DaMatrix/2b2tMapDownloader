@@ -49,7 +49,7 @@ public class Server implements ServerConstants {
                 )))) {
                 throw new IllegalStateException("Unable to rename old log file!");
             }*/
-            logger.enableANSI().addFile(logFile, LogAmount.DEBUG);
+            logger.enableANSI().addFile(logFile, LogAmount.DEBUG).setLogAmount(LogAmount.DEBUG);
         }
 
         Server server;
@@ -81,10 +81,12 @@ public class Server implements ServerConstants {
                     "git", "init"
             );
         }
+        logger.info("Starting web server...");
         this.httpServer = ServerBuilder.of(HTTPSession::new)
                                        .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())
                                        .bind("0.0.0.0", 8080)
                                        .build();
+        logger.success("Web server started.");
     }
 
     public void shutdown() {
