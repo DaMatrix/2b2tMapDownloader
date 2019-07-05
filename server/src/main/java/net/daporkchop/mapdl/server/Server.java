@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.misc.file.PFiles;
+import net.daporkchop.lib.hash.util.Digest;
 import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.lib.network.endpoint.PServer;
 import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
@@ -32,7 +33,10 @@ import net.daporkchop.mapdl.server.util.ServerConstants;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Scanner;
 
 /**
@@ -62,7 +66,7 @@ public class Server implements ServerConstants {
             throw new RuntimeException(e);
         }
 
-        try (Scanner s = new Scanner(System.in))    {
+        try (Scanner s = new Scanner(System.in)) {
             s.nextLine();
         }
 
@@ -70,24 +74,37 @@ public class Server implements ServerConstants {
     }
 
     protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
-    protected final File                 root;
-    protected final History history;
-    protected final PServer<HTTPSession> httpServer;
+    protected final File                   root;
+    protected final History                history;
+    protected final PServer<HTTPSession>   httpServer;
     protected final PServer<ServerSession> gameServer;
+    protected final byte[]                 salt;
 
     private Server(@NonNull File root) throws IOException {
-        this.root = root;
+        this.root = PFiles.ensureDirectoryExists(root);
+
+        {
+            File saltFile = new File(root, "salt");
+            if (!saltFile.exists()) {
+                logger.info("Please enter a salt for user passwords: ");
+                try (Scanner s = new Scanner(System.in);
+                     OutputStream out = new FileOutputStream(saltFile)) {
+                    out.write(s.nextLine().getBytes(StandardCharsets.UTF_8));
+                }
+            }
+            this.salt = Digest.WHIRLPOOL.hash(saltFile).getHash();
+        }
 
         this.history = new History(this);
 
         logger.info("Starting web server...");
-        this.httpServer = ServerBuilder.of(HTTPSession::new)
+        this.httpServer = ServerBuilder.of(() -> new HTTPSession(this))
                                        .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())
                                        .bind("0.0.0.0", 8080)
                                        .build();
         logger.success("Web server started.");
         logger.info("Starting game server...");
-        this.gameServer = ServerBuilder.of(ServerSession::new)
+        this.gameServer = ServerBuilder.of(() -> new ServerSession(this))
                                        .engine(TCPEngine.builder().framerFactory(FullHTTPFramer::new).build())
                                        .bind("0.0.0.0", 8081)
                                        .build();
@@ -97,5 +114,6 @@ public class Server implements ServerConstants {
     public void shutdown() {
         this.processLauncher.shutdown();
         this.httpServer.closeAsync().addListener(() -> logger.success("HTTP server closed."));
+        this.gameServer.closeAsync().addListener(() -> logger.success("Game server closed."));
     }
 }

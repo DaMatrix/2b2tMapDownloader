@@ -16,33 +16,75 @@
 package net.daporkchop.mapdl.server.net.game;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.util.ByteProcessor;
 import lombok.NonNull;
-import net.daporkchop.lib.network.tcp.frame.Framer;
 import net.daporkchop.mapdl.server.net.BaseHTTPFramer;
-import net.daporkchop.mapdl.server.net.web.LightHTTPFramer;
 
 /**
  * @author DaPorkchop_
  */
 public class FullHTTPFramer extends BaseHTTPFramer<ServerSession> {
     protected int offset = 0;
-    protected int state = 0;
+    protected int lastSuccessfulOffset = 0;
+    protected int state  = 0;
+
+    protected boolean preparedForBody = false;
+    protected boolean chunked = false;
 
     @Override
     public void received(@NonNull ServerSession session, @NonNull ByteBuf msg, @NonNull UnpackCallback callback) {
-        if (this.buf != null)   {
+        if (!this.preparedForBody && this.buf != null) {
             this.buf.writeBytes(msg);
-            while (this.buf.isReadable()) {
+            LOOP:
+            while (this.buf != null && this.buf.isReadable()) {
                 switch (this.state) {
                     case 0: //read request string
+                    case 1: //read headers
                         int i = this.buf.forEachByte(this.offset, this.buf.writerIndex() - this.offset, ByteProcessor.FIND_LF);
                         if (i == -1) {
                             this.offset = this.buf.writerIndex();
+                            return;
                         } else {
+                            //logger.info("Read %d bytes.", i - 1 - this.lastSuccessfulOffset);
+                            callback.add(this.buf.slice(this.lastSuccessfulOffset, i - 1 - this.lastSuccessfulOffset), this.state);
+                            this.buf.readerIndex(this.offset = this.lastSuccessfulOffset = i + 1);
                         }
+                        break;
+                    case 2: //read body
+                        break LOOP;
                 }
             }
         }
+        if (this.state == 2)    {
+            if (!this.preparedForBody)  {
+                this.preparedForBody = true;
+                this.prepareForBody(session);
+            }
+            if (this.chunked)   {
+            } else {
+                this.buf.writeBytes(msg);
+            }
+        }
+    }
+
+    protected void prepareForBody(@NonNull ServerSession session) {
+        if (session.headers.containsKey("Content-length"))  {
+            this.chunked = false;
+            int len = Integer.parseInt(session.headers.get("Content-length"));
+            if (len > 1048576)  {
+                throw new IllegalArgumentException();
+            }
+            ByteBuf newBuf = PooledByteBufAllocator.DEFAULT.ioBuffer(len);
+            newBuf.writeBytes(this.buf);
+            this.release(session);
+            this.buf = newBuf;
+        } else if (session.headers.containsKey("Transfer-Encoding") && session.headers.get("Transfer-Encoding").equals("chunked"))  {
+            this.chunked = true;
+        }
+    }
+
+    public void nextState() {
+        this.state++;
     }
 }

@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.mapdl.server.net.web;
+package net.daporkchop.mapdl.server.net;
 
 import java.nio.charset.StandardCharsets;
 

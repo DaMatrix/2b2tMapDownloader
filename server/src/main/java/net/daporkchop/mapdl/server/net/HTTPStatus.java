@@ -28,6 +28,7 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 public enum HTTPStatus {
     OK("OK", 200),
+    FORBIDDEN("Forbidden", 403),
     NOT_FOUND("Not Found", 404),
     INTERNAL_SERVER_ERROR("Internal Server Error", 500)
     ;
