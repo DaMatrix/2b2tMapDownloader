@@ -27,6 +27,7 @@ import net.daporkchop.lib.network.session.AbstractUserSession;
 import net.daporkchop.lib.network.session.encode.SendCallback;
 import net.daporkchop.lib.network.util.PacketMetadata;
 import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.mapdl.server.util.ServerConstants;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -38,7 +39,7 @@ import java.nio.charset.StandardCharsets;
  *
  * @author DaPorkchop_
  */
-public class HTTPSession extends AbstractUserSession<HTTPSession> implements Logging, EncodedHTML {
+public class HTTPSession extends AbstractUserSession<HTTPSession> implements ServerConstants, EncodedHTML {
     protected static final long SENT_OFFSET = PUnsafe.pork_getOffset(HTTPSession.class, "sent");
 
     private volatile int sent = 0;

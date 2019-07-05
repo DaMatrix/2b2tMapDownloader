@@ -21,6 +21,7 @@ import lombok.NonNull;
 import net.daporkchop.lib.logging.Logging;
 import net.daporkchop.lib.network.tcp.frame.Framer;
 import net.daporkchop.lib.network.util.PacketMetadata;
+import net.daporkchop.mapdl.server.util.ServerConstants;
 
 import java.util.List;
 
@@ -29,7 +30,7 @@ import java.util.List;
  *
  * @author DaPorkchop_
  */
-public class LightHTTPFramer implements Framer<HTTPSession>, Logging {
+public class LightHTTPFramer implements Framer<HTTPSession>, ServerConstants {
     protected static final int MAX_BUF_SIZE = 4096;
 
     protected static boolean startsWith(@NonNull ByteBuf buf, @NonNull String s) {
@@ -47,8 +48,9 @@ public class LightHTTPFramer implements Framer<HTTPSession>, Logging {
     protected static boolean endsWith(@NonNull ByteBuf buf, @NonNull String s) {
         int len = buf.writerIndex();
         if (len >= s.length()) {
+            len -= s.length();
             for (int i = s.length() - 1; i >= 0; i--) {
-                if (buf.getByte(len - i) != s.charAt(i)) {
+                if (buf.getByte(len + i) != s.charAt(i)) {
                     return false;
                 }
             }
@@ -63,16 +65,13 @@ public class LightHTTPFramer implements Framer<HTTPSession>, Logging {
 
     @Override
     public void received(@NonNull HTTPSession session, @NonNull ByteBuf msg, @NonNull UnpackCallback callback) {
-        logger.debug("Received %d bytes!", msg.readableBytes());
         if (this.readHeaders) {
             throw new IllegalStateException("Already read headers!");
         } else if (this.buf.writerIndex() + msg.readableBytes() > MAX_BUF_SIZE) {
             throw new IllegalStateException("Too much data!");
         } else {
-            logger.debug("Received %d bytes!", msg.readableBytes());
             this.buf.writeBytes(msg);
             if (!this.readPrefix && this.buf.writerIndex() >= 4) {
-                logger.debug("Prefix readable!");
                 if (startsWith(this.buf, "GET ")) {
                     this.readPrefix = true;
                 } else {

@@ -16,6 +16,7 @@
 package net.daporkchop.mapdl.server;
 
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.logging.LogAmount;
@@ -24,6 +25,7 @@ import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
 import net.daporkchop.lib.network.tcp.TCPEngine;
 import net.daporkchop.mapdl.server.http.HTTPSession;
 import net.daporkchop.mapdl.server.http.LightHTTPFramer;
+import net.daporkchop.mapdl.server.repo.History;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
@@ -54,7 +56,7 @@ public class Server implements ServerConstants {
 
         Server server;
         try {
-            server = new Server();
+            server = new Server(new File("."));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -67,20 +69,16 @@ public class Server implements ServerConstants {
     }
 
     protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
-    protected final File                 repoDir;
+    protected final File                 root;
+    protected final History history;
     protected final PServer<HTTPSession> httpServer;
     protected final PServer<?> gameServer = null; //TODO
 
-    private Server() throws IOException {
-        this.repoDir = new File("repo/");
-        if (!this.repoDir.exists()) {
-            logger.info("Creating repo...");
-            this.processLauncher.submit(
-                    (stdout, stderr, exitCode) -> logger.success(stdout.toString(StandardCharsets.UTF_8)),
-                    PFiles.ensureDirectoryExists(this.repoDir),
-                    "git", "init"
-            );
-        }
+    private Server(@NonNull File root) throws IOException {
+        this.root = root;
+
+        this.history = new History(this);
+
         logger.info("Starting web server...");
         this.httpServer = ServerBuilder.of(HTTPSession::new)
                                        .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())

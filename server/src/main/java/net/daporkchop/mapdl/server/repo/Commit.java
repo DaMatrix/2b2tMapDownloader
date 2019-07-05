@@ -15,12 +15,13 @@
 
 package net.daporkchop.mapdl.server.repo;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.binary.Data;
-import net.daporkchop.lib.binary.UTF8;
 import net.daporkchop.lib.binary.stream.DataIn;
 import net.daporkchop.lib.binary.stream.DataOut;
 import net.daporkchop.lib.encoding.basen.Base58;
@@ -28,26 +29,26 @@ import net.daporkchop.lib.encoding.basen.Base58;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.UUID;
+import java.util.regex.Matcher;
 
 /**
  * @author DaPorkchop_
  */
+@RequiredArgsConstructor
 @Getter
-@Setter
+@Setter(AccessLevel.PROTECTED)
 @Accessors(fluent = true, chain = true)
-public class CommitData implements Data {
-    public static CommitData parse(@NonNull String encoded)    {
-        try {
-            CommitData data = new CommitData();
-            data.read(DataIn.wrap(ByteBuffer.wrap(Base58.decodeBase58(encoded))));
-            return data;
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+public class Commit implements Data {
+    @NonNull
+    protected final String hash;
+    @NonNull
+    protected final UUID author;
+    @NonNull
+    protected final String date;
+    @NonNull
+    protected final String relativeDate;
 
     protected int  version;
-    protected UUID author;
     protected UUID acceptor;
     protected long totalChunks;
     protected long newChunks;
@@ -55,7 +56,6 @@ public class CommitData implements Data {
     @Override
     public void read(@NonNull DataIn in) throws IOException {
         this.version(in.readVarInt())
-            .author(new UUID(in.readLong(), in.readLong()))
             .acceptor(new UUID(in.readLong(), in.readLong()))
             .totalChunks(in.readVarLong())
             .newChunks(in.readVarLong());
@@ -64,7 +64,6 @@ public class CommitData implements Data {
     @Override
     public void write(@NonNull DataOut out) throws IOException {
         out.writeVarInt(this.version)
-           .writeLong(this.author.getMostSignificantBits()).writeLong(this.author.getLeastSignificantBits())
            .writeLong(this.acceptor.getMostSignificantBits()).writeLong(this.acceptor.getLeastSignificantBits())
            .writeVarLong(this.totalChunks)
            .writeVarLong(this.newChunks);
