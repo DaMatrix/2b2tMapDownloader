@@ -28,7 +28,7 @@ import net.daporkchop.mapdl.server.net.game.FullHTTPFramer;
 import net.daporkchop.mapdl.server.net.game.ServerSession;
 import net.daporkchop.mapdl.server.net.web.HTTPSession;
 import net.daporkchop.mapdl.server.net.web.LightHTTPFramer;
-import net.daporkchop.mapdl.server.repo.History;
+import net.daporkchop.mapdl.server.storage.user.UserStorage;
 import net.daporkchop.mapdl.server.util.ServerConstants;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 
@@ -44,7 +44,7 @@ import java.util.Scanner;
  */
 @Getter
 @Accessors(fluent = true)
-public class Server implements ServerConstants {
+public class Server implements ServerConstants, AutoCloseable {
     public static void main(String... args) {
         { //init logging
             File logDir = new File("logs/");
@@ -56,46 +56,40 @@ public class Server implements ServerConstants {
                 )))) {
                 throw new IllegalStateException("Unable to rename old log file!");
             }*/
-            logger.enableANSI().addFile(logFile, LogAmount.DEBUG).setLogAmount(LogAmount.DEBUG);
+            logger.enableANSI().redirectStdOut().addFile(logFile, LogAmount.DEBUG).setLogAmount(LogAmount.DEBUG);
         }
 
-        Server server;
-        try {
-            server = new Server(new File("."));
+        try (Scanner scanner = new Scanner(System.in);
+             Server server = new Server(new File("."), scanner)) {
+            scanner.nextLine();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-        try (Scanner s = new Scanner(System.in)) {
-            s.nextLine();
-        }
-
-        server.shutdown();
     }
 
     protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
     protected final File                   root;
-    protected final History                history;
     protected final PServer<HTTPSession>   httpServer;
     protected final PServer<ServerSession> gameServer;
-    protected final byte[]                 salt;
 
-    private Server(@NonNull File root) throws IOException {
+    protected final byte[]      salt;
+    protected final UserStorage users;
+
+    private Server(@NonNull File root, @NonNull Scanner scanner) throws IOException {
         this.root = PFiles.ensureDirectoryExists(root);
 
         {
             File saltFile = new File(root, "salt");
             if (!saltFile.exists()) {
                 logger.info("Please enter a salt for user passwords: ");
-                try (Scanner s = new Scanner(System.in);
-                     OutputStream out = new FileOutputStream(saltFile)) {
-                    out.write(s.nextLine().getBytes(StandardCharsets.UTF_8));
+                try (OutputStream out = new FileOutputStream(saltFile)) {
+                    out.write(scanner.nextLine().getBytes(StandardCharsets.UTF_8));
                 }
             }
             this.salt = Digest.WHIRLPOOL.hash(saltFile).getHash();
         }
 
-        this.history = new History(this);
+        this.users = new UserStorage(this);
 
         logger.info("Starting web server...");
         this.httpServer = ServerBuilder.of(() -> new HTTPSession(this))
@@ -111,9 +105,12 @@ public class Server implements ServerConstants {
         logger.success("Game server started.");
     }
 
-    public void shutdown() {
-        this.processLauncher.shutdown();
-        this.httpServer.closeAsync().addListener(() -> logger.success("HTTP server closed."));
+    @Override
+    public void close() throws IOException {
         this.gameServer.closeAsync().addListener(() -> logger.success("Game server closed."));
+        this.httpServer.closeAsync().addListener(() -> logger.success("HTTP server closed."));
+        this.processLauncher.shutdown();
+
+        this.users.close();
     }
 }

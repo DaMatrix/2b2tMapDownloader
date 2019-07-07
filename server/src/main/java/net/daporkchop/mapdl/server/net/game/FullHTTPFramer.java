@@ -30,7 +30,7 @@ public class FullHTTPFramer extends BaseHTTPFramer<ServerSession> {
     protected int state  = 0;
 
     protected boolean preparedForBody = false;
-    protected boolean chunked = false;
+    //protected boolean chunked = false;
 
     @Override
     public void received(@NonNull ServerSession session, @NonNull ByteBuf msg, @NonNull UnpackCallback callback) {
@@ -61,16 +61,17 @@ public class FullHTTPFramer extends BaseHTTPFramer<ServerSession> {
                 this.preparedForBody = true;
                 this.prepareForBody(session);
             }
-            if (this.chunked)   {
+            /*if (this.chunked)   {
             } else {
                 this.buf.writeBytes(msg);
-            }
+            }*/
+            this.buf.writeBytes(msg);
         }
     }
 
     protected void prepareForBody(@NonNull ServerSession session) {
         if (session.headers.containsKey("Content-length"))  {
-            this.chunked = false;
+            //this.chunked = false;
             int len = Integer.parseInt(session.headers.get("Content-length"));
             if (len > 1048576)  {
                 throw new IllegalArgumentException();
@@ -79,8 +80,10 @@ public class FullHTTPFramer extends BaseHTTPFramer<ServerSession> {
             newBuf.writeBytes(this.buf);
             this.release(session);
             this.buf = newBuf;
-        } else if (session.headers.containsKey("Transfer-Encoding") && session.headers.get("Transfer-Encoding").equals("chunked"))  {
+        } else /*if (session.headers.containsKey("Transfer-Encoding") && session.headers.get("Transfer-Encoding").equals("chunked"))  {
             this.chunked = true;
+        }*/{
+            throw new IllegalStateException("Content-length missing!");
         }
     }
 

@@ -13,58 +13,57 @@
  *
  */
 
-package net.daporkchop.mapdl.server.repo;
+package net.daporkchop.mapdl.server.storage.user;
 
-import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.experimental.Accessors;
-import net.daporkchop.lib.binary.Data;
 import net.daporkchop.lib.binary.stream.DataIn;
 import net.daporkchop.lib.binary.stream.DataOut;
-import net.daporkchop.lib.encoding.basen.Base58;
+import net.daporkchop.lib.common.cache.SoftThreadCache;
+import net.daporkchop.lib.common.cache.ThreadCache;
+import net.daporkchop.mapdl.server.Server;
+import net.daporkchop.mapdl.server.storage.BaseStorage;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.UUID;
-import java.util.regex.Matcher;
+import java.nio.charset.StandardCharsets;
 
 /**
  * @author DaPorkchop_
  */
-@RequiredArgsConstructor
-@Getter
-@Setter(AccessLevel.PROTECTED)
-@Accessors(fluent = true, chain = true)
-public class Commit implements Data {
-    @NonNull
-    protected final String hash;
-    @NonNull
-    protected final UUID   author;
-    protected final long   time;
-    @NonNull
-    protected final String relativeDate;
+public class UserStorage extends BaseStorage<String, User> {
+    protected static final ThreadCache<ByteArrayOutputStream> BAOS_CACHE = SoftThreadCache.of(ByteArrayOutputStream::new);
 
-    protected int  version;
-    protected UUID acceptor;
-    protected long totalChunks;
-    protected long newChunks;
-
-    @Override
-    public void read(@NonNull DataIn in) throws IOException {
-        this.version(in.readVarInt())
-            .acceptor(new UUID(in.readLong(), in.readLong()))
-            .totalChunks(in.readVarLong())
-            .newChunks(in.readVarLong());
+    public UserStorage(@NonNull Server server) throws IOException {
+        super(server, new File(server.root(), "users/"));
     }
 
     @Override
-    public void write(@NonNull DataOut out) throws IOException {
-        out.writeVarInt(this.version)
-           .writeLong(this.acceptor.getMostSignificantBits()).writeLong(this.acceptor.getLeastSignificantBits())
-           .writeVarLong(this.totalChunks)
-           .writeVarLong(this.newChunks);
+    protected byte[] encodeKey(@NonNull String key) {
+        return key.getBytes(StandardCharsets.UTF_8);
+    }
+
+    @Override
+    protected byte[] encodeValue(@NonNull User value) {
+        ByteArrayOutputStream baos = BAOS_CACHE.get();
+        baos.reset();
+        try (DataOut out = DataOut.wrap(baos))  {
+            value.write(out);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return baos.toByteArray();
+    }
+
+    @Override
+    protected User decodeValue(@NonNull byte[] value) {
+        User user = new User();
+        try (DataIn in = DataIn.wrap(ByteBuffer.wrap(value)))   {
+            user.read(in);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return user;
     }
 }

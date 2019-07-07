@@ -28,8 +28,9 @@ allprojects {
         mcpVersion = "stable_39"
 
         //java stuff
-        jgitVersion = "5.4.0.201906121030-r"
+        guavaVersion = "28.0-jre"
         junitVersion = "4.12"
+        leveldbVersion = "1.8"
         porklibVersion = "0.4.0-SNAPSHOT"
     }
 }
