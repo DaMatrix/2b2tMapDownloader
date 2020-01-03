@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2019 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2020 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -13,31 +13,45 @@
  *
  */
 
-plugins {
-    id "io.franzbecker.gradle-lombok" version "1.14" apply false
-}
-
 allprojects {
-    group "net.daporkchop.mapdl"
-    version "0.0.1"
-
     ext {
-        //Minecraft-specific stuff
+        //general things
+        javaVersion = "1.8"
+        mapdlVersion = "0.0.1"
+
+        //minecraft things
         mcVersion = "1.12.2"
         forgeVersion = "14.23.5.2836"
         mcpVersion = "stable_39"
 
-        //java stuff
+        //dependency things
+        gsonVersion = "2.8.5"
         guavaVersion = "28.0-jre"
         junitVersion = "4.12"
         leveldbVersion = "1.8"
-        porklibVersion = "0.4.0-SNAPSHOT"
+        lombokVersion = "1.16.20"
+        porklibVersion = "0.5.0-SNAPSHOT"
     }
+
+    group "net.daporkchop.mapdl"
+    version "$mapdlVersion"
 }
 
 subprojects {
     apply plugin: "java"
-    apply plugin: "io.franzbecker.gradle-lombok"
+
+    compileJava {
+        sourceCompatibility = targetCompatibility = "$javaVersion"
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+    }
+
+    configurations {
+        shade
+        compile.extendsFrom shade
+    }
 
     sourceCompatibility = 1.8
     archivesBaseName = project.name
@@ -52,6 +66,26 @@ subprojects {
     }
 
     dependencies {
+        compile "net.daporkchop.lib:http:$porklibVersion"
+
         testCompile "junit:junit:$junitVersion"
+
+        compileOnly "org.projectlombok:lombok:$lombokVersion"
+        testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+        annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+        testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
+    }
+
+    jar {
+        from {
+            configurations.shade.collect {
+                it.isDirectory() ? it : zipTree(it)
+            }.unique()
+        } {
+            exclude "META-INF/**"
+            exclude sourceSets.main.output.asFileTree.collect {
+                return it.getPath().split("java/main/").last()
+            }
+        }
     }
 }

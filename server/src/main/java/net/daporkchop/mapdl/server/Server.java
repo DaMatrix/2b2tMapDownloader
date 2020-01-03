@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2019 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2020 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -94,13 +94,13 @@ public class Server implements ServerConstants, AutoCloseable {
         logger.info("Starting web server...");
         this.httpServer = ServerBuilder.of(() -> new HTTPSession(this))
                                        .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())
-                                       .bind("0.0.0.0", 8080)
+                                       .bind(8080)
                                        .build();
         logger.success("Web server started.");
         logger.info("Starting game server...");
         this.gameServer = ServerBuilder.of(() -> new ServerSession(this))
                                        .engine(TCPEngine.builder().framerFactory(FullHTTPFramer::new).build())
-                                       .bind("0.0.0.0", 8081)
+                                       .bind(8081)
                                        .build();
         logger.success("Game server started.");
     }
