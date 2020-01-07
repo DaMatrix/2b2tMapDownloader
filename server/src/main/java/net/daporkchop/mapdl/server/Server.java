@@ -15,41 +15,41 @@
 
 package net.daporkchop.mapdl.server;
 
+import com.google.gson.reflect.TypeToken;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
+import net.daporkchop.lib.binary.oio.reader.UTF8FileReader;
+import net.daporkchop.lib.binary.oio.writer.UTF8FileWriter;
 import net.daporkchop.lib.common.misc.file.PFiles;
-import net.daporkchop.lib.hash.util.Digest;
+import net.daporkchop.lib.http.impl.netty.server.NettyHttpServer;
+import net.daporkchop.lib.http.server.HttpServer;
 import net.daporkchop.lib.logging.LogAmount;
-import net.daporkchop.lib.network.endpoint.PServer;
-import net.daporkchop.lib.network.endpoint.builder.ServerBuilder;
-import net.daporkchop.lib.network.tcp.TCPEngine;
-import net.daporkchop.mapdl.server.net.game.FullHTTPFramer;
-import net.daporkchop.mapdl.server.net.game.ServerSession;
-import net.daporkchop.mapdl.server.net.web.HTTPSession;
-import net.daporkchop.mapdl.server.net.web.LightHTTPFramer;
-import net.daporkchop.mapdl.server.storage.user.UserStorage;
-import net.daporkchop.mapdl.server.util.ServerConstants;
+import net.daporkchop.mapdl.common.User;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
+import net.daporkchop.mapdl.server.web.ServerRequestHandler;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.Reader;
+import java.io.Writer;
+import java.net.InetSocketAddress;
+import java.util.Map;
 import java.util.Scanner;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static net.daporkchop.lib.logging.Logging.*;
+import static net.daporkchop.mapdl.server.util.ServerConstants.*;
 
 /**
  * @author DaPorkchop_
  */
 @Getter
 @Accessors(fluent = true)
-public class Server implements ServerConstants, AutoCloseable {
+public class Server implements AutoCloseable {
     public static void main(String... args) {
         { //init logging
-            File logDir = new File("logs/");
-            PFiles.ensureDirectoryExists(logDir);
-            File logFile = new File(logDir, "latest.log");
+            File logFile = new File(PFiles.ensureDirectoryExists(new File("logs/")), "latest.log");
             /*if (logFile.exists() && !logFile.renameTo(new File(logDir, String.format(
                         "%s.log",
                         new SimpleDateFormat("yy.MM.dd HH.mm.ss").format(Instant.ofEpochMilli(logFile.lastModified()).)
@@ -68,49 +68,62 @@ public class Server implements ServerConstants, AutoCloseable {
     }
 
     protected final ProcessLauncher processLauncher = new ProcessLauncher(10L);
-    protected final File                   root;
-    protected final PServer<HTTPSession>   httpServer;
-    protected final PServer<ServerSession> gameServer;
+    protected final File root;
 
-    protected final byte[]      salt;
-    protected final UserStorage users;
+    protected final File              usersFile;
+    protected final Map<String, User> users;
+
+    protected final HttpServer server;
 
     private Server(@NonNull File root, @NonNull Scanner scanner) throws IOException {
+        logger.info("Starting 2b2tMapDownloader server...");
+
+        Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
+            logger.alert("Uncaught exception in thread \"%s\":", e, thread);
+            try {
+                this.close();
+            } catch (IOException ioe) {
+                logger.alert("IO exception while aborting server:", ioe);
+            } finally {
+                System.exit(1);
+            }
+        });
+
         this.root = PFiles.ensureDirectoryExists(root);
 
-        {
-            File saltFile = new File(root, "salt");
-            if (!saltFile.exists()) {
-                logger.info("Please enter a salt for user passwords: ");
-                try (OutputStream out = new FileOutputStream(saltFile)) {
-                    out.write(scanner.nextLine().getBytes(StandardCharsets.UTF_8));
-                }
+        //load users
+        this.users = new ConcurrentHashMap<>();
+        this.usersFile = new File(root, "users.json");
+        if (PFiles.checkFileExists(this.usersFile)) {
+            try (Reader src = new UTF8FileReader(this.usersFile)) {
+                this.users.putAll(GSON_ALL.fromJson(src, new TypeToken<Map<String, User>>() {}.getType()));
             }
-            this.salt = Digest.WHIRLPOOL.hash(saltFile).getHash();
         }
 
-        this.users = new UserStorage(this);
+        this.server = new NettyHttpServer(logger.channel("HTTP"))
+                .handler(new ServerRequestHandler());
 
-        logger.info("Starting web server...");
-        this.httpServer = ServerBuilder.of(() -> new HTTPSession(this))
-                                       .engine(TCPEngine.builder().framerFactory(LightHTTPFramer::new).build())
-                                       .bind(8080)
-                                       .build();
-        logger.success("Web server started.");
-        logger.info("Starting game server...");
-        this.gameServer = ServerBuilder.of(() -> new ServerSession(this))
-                                       .engine(TCPEngine.builder().framerFactory(FullHTTPFramer::new).build())
-                                       .bind(8081)
-                                       .build();
-        logger.success("Game server started.");
+        this.server.bind(new InetSocketAddress(8080)).addListener(f -> {
+            if (!f.isSuccess()) {
+                logger.alert("Failed to bind to port 8080!", f.cause());
+                System.exit(1);
+            }
+        });
     }
 
     @Override
     public void close() throws IOException {
-        this.gameServer.closeAsync().addListener(() -> logger.success("Game server closed."));
-        this.httpServer.closeAsync().addListener(() -> logger.success("HTTP server closed."));
+        this.server.close();
         this.processLauncher.shutdown();
 
-        this.users.close();
+        this.saveUsers();
+    }
+
+    public void saveUsers() throws IOException {
+        synchronized (this.usersFile) {
+            try (Writer dst = new UTF8FileWriter(PFiles.ensureFileExists(this.usersFile))) {
+                GSON_ALL.toJson(this.users, dst);
+            }
+        }
     }
 }

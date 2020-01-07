@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2019 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2020 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -13,25 +13,33 @@
  *
  */
 
-package net.daporkchop.mapdl.server.net;
+package net.daporkchop.mapdl.common;
 
+import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.experimental.Accessors;
+import net.daporkchop.mapdl.common.util.Hidden;
 
 /**
+ * Representation of a user profile.
+ *
  * @author DaPorkchop_
  */
 @RequiredArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 @Getter
-@Accessors(fluent = true)
-public enum ContentType {
-    TEXT_HTML("text/html"),
-    TEXT_PLAIN("text/plain"),
-    IMAGE_PNG("image/png"),
-    APPLICATION_JSON("application/json");
-
+@Setter
+@Accessors(fluent = true, chain = true)
+public class User {
     @NonNull
-    private final String mimeType;
+    protected String name;
+
+    //hex-encoded sha3-256 hash of UTF-8 encoded username and password
+    @NonNull
+    @Hidden
+    protected String password;
 }

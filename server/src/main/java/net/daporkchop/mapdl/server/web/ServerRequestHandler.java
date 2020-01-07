@@ -1,7 +1,7 @@
 /*
  * Adapted from the Wizardry License
  *
- * Copyright (c) 2018-2019 DaPorkchop_ and contributors
+ * Copyright (c) 2018-2020 DaPorkchop_ and contributors
  *
  * Permission is hereby granted to any persons and/or organizations using this software to copy, modify, merge, publish, and distribute it. Said persons and/or organizations are not allowed to use the software or any derivatives of the work for commercial use or any other means to generate income, nor are they allowed to claim this software as their own.
  *
@@ -13,24 +13,26 @@
  *
  */
 
-package net.daporkchop.mapdl.server.net;
+package net.daporkchop.mapdl.server.web;
 
-import java.nio.charset.StandardCharsets;
+import lombok.NonNull;
+import net.daporkchop.lib.http.message.Message;
+import net.daporkchop.lib.http.request.query.Query;
+import net.daporkchop.lib.http.server.ResponseBuilder;
+import net.daporkchop.lib.http.server.handle.ServerHandler;
 
 /**
- * Some pre-encoded HTML tags as byte arrays for Speed(tm).
+ * Handles incoming HTTP requests.
  *
  * @author DaPorkchop_
  */
-public interface EncodedHTML {
-    byte[] TAG_HTML_OPEN = "<html>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_HTML_CLOSE = "</html>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BODY_OPEN = "<body>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BODY_CLOSE = "</body>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_CODE_OPEN = "<code>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_CODE_CLOSE = "</code>".getBytes(StandardCharsets.UTF_8);
-    byte[] TAG_BR = "<br>".getBytes(StandardCharsets.UTF_8);
+public final class ServerRequestHandler implements ServerHandler {
+    @Override
+    public int maxBodySize() {
+        return 1 << 24; //16 MiB
+    }
 
-    byte[] INTERNAL_SERVER_ERROR_PREFIX = "<html><body><h1>500 Internal Server Error</h1>".getBytes(StandardCharsets.UTF_8);
-    byte[] INTERNAL_SERVER_ERROR_FULL = "<html><body><h1>500 Internal Server Error</h1></body></html>".getBytes(StandardCharsets.UTF_8);
+    @Override
+    public void handle(@NonNull Query query, @NonNull Message message, @NonNull ResponseBuilder response) throws Exception {
+    }
 }

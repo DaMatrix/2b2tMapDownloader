@@ -20,8 +20,9 @@ mainClassName = "net.daporkchop.mapdl.server.Server"
 dependencies {
     compile project(":common")
 
-    compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
-    compile "com.google.guava:guava:$guavaVersion" //i have to pull in this massive dependency just because i needed LoadingCache. screw you, guava!
+    compile "net.daporkchop.lib:http-netty:$porklibVersion"
+
+    compile "com.google.code.gson:gson:$gsonVersion"
 }
 
 jar {
