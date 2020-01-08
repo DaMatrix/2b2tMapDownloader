@@ -16,6 +16,7 @@
 package net.daporkchop.mapdl.server;
 
 import com.google.gson.reflect.TypeToken;
+import io.netty.util.concurrent.Future;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
@@ -28,12 +29,15 @@ import net.daporkchop.lib.logging.LogAmount;
 import net.daporkchop.mapdl.common.User;
 import net.daporkchop.mapdl.server.util.process.ProcessLauncher;
 import net.daporkchop.mapdl.server.web.ServerRequestHandler;
+import net.daporkchop.mapdl.server.world.World;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
@@ -73,42 +77,68 @@ public class Server implements AutoCloseable {
     protected final File              usersFile;
     protected final Map<String, User> users;
 
+    //this is okay performance-wise since Integer caches all values -128 to 127 internally, and we only need -1 to 1
+    protected final Map<Integer, World> worlds;
+
     protected final HttpServer server;
 
     private Server(@NonNull File root, @NonNull Scanner scanner) throws IOException {
-        logger.info("Starting 2b2tMapDownloader server...");
+        try {
+            logger.info("Starting 2b2tMapDownloader server...");
 
-        Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
-            logger.alert("Uncaught exception in thread \"%s\":", e, thread);
+            Thread.setDefaultUncaughtExceptionHandler((thread, e) -> {
+                logger.alert("Uncaught exception in thread \"%s\":", e, thread);
+                try {
+                    this.close();
+                } catch (IOException ioe) {
+                    logger.alert("IO exception while aborting server:", ioe);
+                } finally {
+                    System.exit(1);
+                }
+            });
+
+            this.root = PFiles.ensureDirectoryExists(root);
+
+            //load users
+            this.users = new ConcurrentHashMap<>();
+            this.usersFile = new File(root, "users.json");
+            if (PFiles.checkFileExists(this.usersFile)) {
+                logger.info("Loading users...");
+                try (Reader src = new UTF8FileReader(this.usersFile)) {
+                    this.users.putAll(GSON_ALL.fromJson(src, new TypeToken<Map<String, User>>() {}.getType()));
+                }
+            }
+
+            this.server = new NettyHttpServer(logger.channel("HTTP"))
+                    .handler(new ServerRequestHandler());
+
+            Future<?> bindFuture = this.server.bind(new InetSocketAddress(8080)).addListener(f -> {
+                if (!f.isSuccess()) {
+                    logger.alert("Failed to bind to port 8080!", f.cause());
+                    System.exit(1);
+                }
+            });
+
+            logger.info("Loading worlds...");
+            Map<Integer, World> worlds = new HashMap<>();
+            for (int i = -1; i <= 1; i++) {
+                worlds.put(i, new World(this, i));
+            }
+            this.worlds = Collections.unmodifiableMap(worlds);
+
+            bindFuture.syncUninterruptibly();
+        } catch (Exception e) {
+            logger.alert("Encountered exception while starting server:", e);
+
             try {
                 this.close();
             } catch (IOException ioe) {
                 logger.alert("IO exception while aborting server:", ioe);
-            } finally {
-                System.exit(1);
             }
-        });
-
-        this.root = PFiles.ensureDirectoryExists(root);
-
-        //load users
-        this.users = new ConcurrentHashMap<>();
-        this.usersFile = new File(root, "users.json");
-        if (PFiles.checkFileExists(this.usersFile)) {
-            try (Reader src = new UTF8FileReader(this.usersFile)) {
-                this.users.putAll(GSON_ALL.fromJson(src, new TypeToken<Map<String, User>>() {}.getType()));
-            }
+            System.exit(1);
+            throw new RuntimeException(e);
         }
-
-        this.server = new NettyHttpServer(logger.channel("HTTP"))
-                .handler(new ServerRequestHandler());
-
-        this.server.bind(new InetSocketAddress(8080)).addListener(f -> {
-            if (!f.isSuccess()) {
-                logger.alert("Failed to bind to port 8080!", f.cause());
-                System.exit(1);
-            }
-        });
+        logger.success("Server started, we are ready to go!");
     }
 
     @Override

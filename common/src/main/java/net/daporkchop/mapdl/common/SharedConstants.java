@@ -13,23 +13,23 @@
  *
  */
 
-apply plugin: "application"
+package net.daporkchop.mapdl.common;
 
-mainClassName = "net.daporkchop.mapdl.server.Server"
+import lombok.experimental.UtilityClass;
+import net.daporkchop.lib.common.pool.handle.DefaultThreadHandledPool;
+import net.daporkchop.lib.common.pool.handle.HandledPool;
+import net.daporkchop.lib.natives.PNatives;
+import net.daporkchop.lib.natives.zlib.PDeflater;
+import net.daporkchop.lib.natives.zlib.PInflater;
+import net.daporkchop.lib.natives.zlib.Zlib;
 
-dependencies {
-    compile project(":common")
-
-    compile "net.daporkchop.lib:http-netty:$porklibVersion"
-    compile "net.daporkchop.lib:minecraft:$porklibVersion"
-
-    compile "com.google.code.gson:gson:$gsonVersion"
-}
-
-jar {
-    manifest {
-        attributes "Implementation-Title": "DaPorkchop_",
-                "Implementation-Version": "$mapdlVersion",
-                "Main-Class": "net.daporkchop.mapdl.server.Server"
-    }
+/**
+ * Random constants used by both the client and the server.
+ *
+ * @author DaPorkchop_
+ */
+@UtilityClass
+public class SharedConstants {
+    public final HandledPool<PInflater> INFLATER_POOL = new DefaultThreadHandledPool<>(() -> PNatives.ZLIB.get().inflater(Zlib.ZLIB_MODE_AUTO), 1);
+    public final HandledPool<PDeflater> DEFLATER_POOL = new DefaultThreadHandledPool<>(() -> PNatives.ZLIB.get().deflater(Zlib.ZLIB_LEVEL_BEST), 1);
 }
