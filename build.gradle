@@ -66,6 +66,7 @@ subprojects {
     }
 
     dependencies {
+        compile "net.daporkchop.lib:hash:$porklibVersion"
         compile "net.daporkchop.lib:http:$porklibVersion"
 
         testCompile "junit:junit:$junitVersion"

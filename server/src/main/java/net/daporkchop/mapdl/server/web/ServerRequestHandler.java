@@ -15,11 +15,33 @@
 
 package net.daporkchop.mapdl.server.web;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import lombok.NonNull;
+import net.daporkchop.lib.binary.oio.appendable.PAppendable;
+import net.daporkchop.lib.binary.oio.appendable.UTF8ByteBufAppendable;
+import net.daporkchop.lib.common.function.throwing.ETriConsumer;
+import net.daporkchop.lib.encoding.Hexadecimal;
+import net.daporkchop.lib.hash.util.Digest;
+import net.daporkchop.lib.http.HttpMethod;
+import net.daporkchop.lib.http.entity.content.type.StandardContentType;
+import net.daporkchop.lib.http.header.map.HeaderMap;
 import net.daporkchop.lib.http.message.Message;
 import net.daporkchop.lib.http.request.query.Query;
 import net.daporkchop.lib.http.server.ResponseBuilder;
 import net.daporkchop.lib.http.server.handle.ServerHandler;
+import net.daporkchop.lib.http.util.StatusCodes;
+import net.daporkchop.lib.http.util.exception.GenericHttpException;
+import net.daporkchop.mapdl.common.User;
+import net.daporkchop.mapdl.server.Server;
+import net.daporkchop.mapdl.server.world.World;
+
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+
+import static net.daporkchop.mapdl.server.util.ServerConstants.*;
 
 /**
  * Handles incoming HTTP requests.
@@ -27,6 +49,100 @@ import net.daporkchop.lib.http.server.handle.ServerHandler;
  * @author DaPorkchop_
  */
 public final class ServerRequestHandler implements ServerHandler {
+    protected final Map<String, ETriConsumer<Query, Message, ResponseBuilder>> handlers = new HashMap<>();
+    protected final Server server;
+
+    public ServerRequestHandler(@NonNull Server server) {
+        this.server = server;
+
+        this.handlers.put("/api/submit", (query, message, response) -> {
+            if (query.method() != HttpMethod.POST) {
+                throw GenericHttpException.Method_Not_Allowed;
+            }
+            User user = this.getAuthenticatedUser(message.headers());
+            String dimension = message.headers().getValue("mapdl-dim");
+            String x = message.headers().getValue("mapdl-x");
+            String z = message.headers().getValue("mapdl-z");
+            if (dimension == null) {
+                throw new GenericHttpException(StatusCodes.Bad_Request, "No dimension given!");
+            } else if (x == null || z == null)  {
+                throw new GenericHttpException(StatusCodes.Bad_Request, "No coordinates given!");
+            }
+            World world = this.server.worlds().get(Integer.parseInt(dimension));
+            if (world == null) {
+                throw new GenericHttpException(StatusCodes.Bad_Request, "Unknown dimension: " + dimension);
+            }
+            world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
+            user.incrementSentChunks();
+
+            ByteBuf buf = PooledByteBufAllocator.DEFAULT.ioBuffer();
+            try {
+                PAppendable out = new UTF8ByteBufAppendable(buf);
+                GSON_VISIBLE.toJson(user, out);
+
+                response.status(StatusCodes.OK)
+                        .body(StandardContentType.APPLICATION_JSON_UTF8, buf.retain());
+            } finally {
+                buf.release();
+            }
+        });
+
+        this.handlers.put("/api/register", (query, message, response) -> {
+            if (query.method() != HttpMethod.POST)  {
+                throw GenericHttpException.Method_Not_Allowed;
+            }
+
+            //TODO: validate person registering
+
+            String username = message.headers().getValue("mapdl-new-username");
+            String password = message.headers().getValue("mapdl-new-password");
+            if (username == null || password == null) {
+                throw new GenericHttpException(StatusCodes.Bad_Request, "No new user given!");
+            }
+
+            String initialHash = Hexadecimal.encode(Digest.SHA3_256.start()
+                    .append(username.getBytes(StandardCharsets.UTF_8))
+                    .append(':')
+                    .append(password.getBytes(StandardCharsets.UTF_8))
+                    .hashToByteArray());
+
+            String saltedHash = Hexadecimal.encode(Digest.SHA3_256.start()
+                    .append(username.getBytes(StandardCharsets.UTF_8))
+                    .append(':')
+                    .append(initialHash.getBytes(StandardCharsets.UTF_8))
+                    .hashToByteArray());
+
+            User user = new User(username, saltedHash);
+            if (server.users().putIfAbsent(username, user) != null)    {
+                throw new GenericHttpException(StatusCodes.Internal_Server_Error, "Username already registered: " + username);
+            }
+
+            response.status(StatusCodes.OK)
+                    .body(StandardContentType.TEXT_PLAIN, Unpooled.EMPTY_BUFFER);
+        });
+    }
+
+    protected User getAuthenticatedUser(@NonNull HeaderMap headers) throws Exception {
+        String username = headers.getValue("mapdl-username");
+        String password = headers.getValue("mapdl-password");
+        if (username == null || password == null) {
+            throw GenericHttpException.Unauthorized;
+        }
+        User user = this.server.users().get(username);
+        if (user == null) {
+            throw GenericHttpException.Forbidden;
+        }
+        String saltedHash = Hexadecimal.encode(Digest.SHA3_256.start()
+                .append(username.getBytes(StandardCharsets.UTF_8))
+                .append(':')
+                .append(password.getBytes(StandardCharsets.UTF_8))
+                .hashToByteArray());
+        if (!saltedHash.equals(user.password())) {
+            throw GenericHttpException.Forbidden;
+        }
+        return user;
+    }
+
     @Override
     public int maxBodySize() {
         return 1 << 24; //16 MiB
@@ -34,5 +150,11 @@ public final class ServerRequestHandler implements ServerHandler {
 
     @Override
     public void handle(@NonNull Query query, @NonNull Message message, @NonNull ResponseBuilder response) throws Exception {
+        ETriConsumer<Query, Message, ResponseBuilder> handler = this.handlers.get(query.path());
+        if (handler != null) {
+            handler.acceptThrowing(query, message, response);
+        } else {
+            throw GenericHttpException.Not_Found;
+        }
     }
 }

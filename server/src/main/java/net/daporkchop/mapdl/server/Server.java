@@ -22,7 +22,9 @@ import lombok.NonNull;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.binary.oio.reader.UTF8FileReader;
 import net.daporkchop.lib.binary.oio.writer.UTF8FileWriter;
+import net.daporkchop.lib.common.function.io.IOConsumer;
 import net.daporkchop.lib.common.misc.file.PFiles;
+import net.daporkchop.lib.common.system.PlatformInfo;
 import net.daporkchop.lib.http.impl.netty.server.NettyHttpServer;
 import net.daporkchop.lib.http.server.HttpServer;
 import net.daporkchop.lib.logging.LogAmount;
@@ -110,7 +112,7 @@ public class Server implements AutoCloseable {
             }
 
             this.server = new NettyHttpServer(logger.channel("HTTP"))
-                    .handler(new ServerRequestHandler());
+                    .handler(new ServerRequestHandler(this));
 
             Future<?> bindFuture = this.server.bind(new InetSocketAddress(8080)).addListener(f -> {
                 if (!f.isSuccess()) {
@@ -147,12 +149,15 @@ public class Server implements AutoCloseable {
         this.processLauncher.shutdown();
 
         this.saveUsers();
+
+        this.worlds.values().forEach((IOConsumer<World>) World::close);
     }
 
     public void saveUsers() throws IOException {
         synchronized (this.usersFile) {
             try (Writer dst = new UTF8FileWriter(PFiles.ensureFileExists(this.usersFile))) {
                 GSON_ALL.toJson(this.users, dst);
+                dst.append(PlatformInfo.OPERATING_SYSTEM.lineEnding());
             }
         }
     }

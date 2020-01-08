@@ -33,6 +33,7 @@ import net.daporkchop.lib.minecraft.world.format.anvil.region.RegionOpenOptions;
 import net.daporkchop.lib.natives.zlib.PDeflater;
 import net.daporkchop.lib.natives.zlib.PInflater;
 import net.daporkchop.lib.unsafe.PUnsafe;
+import net.daporkchop.lib.unsafe.util.exception.AlreadyReleasedException;
 import net.daporkchop.mapdl.server.Server;
 
 import java.io.File;
@@ -41,6 +42,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -66,7 +71,11 @@ public class World implements AutoCloseable {
     protected final Map<Vec2i, RegionFile> regions = Collections.synchronizedMap(new HashMap<>());
     protected final IOFunction<Vec2i, RegionFile> regionCreator;
 
+    protected final ReadWriteLock lock = new ReentrantReadWriteLock();
+
     protected final int dimension;
+
+    protected volatile boolean closed = false;
 
     public World(@NonNull Server server, int dimension) {
         try {
@@ -105,8 +114,29 @@ public class World implements AutoCloseable {
 
     @Override
     public void close() throws IOException {
-        //this can throw IOException
-        this.regions.forEach((IOBiConsumer<Vec2i, RegionFile>) (pos, region) -> region.close());
+        Lock lock = this.lock.writeLock();
+        lock.lock();
+        try {
+            this.assertOpen();
+            this.closed = true;
+
+            //only handle first exception, but make an attempt to close every region
+            AtomicReference<IOException> ref = new AtomicReference<>();
+            this.regions.forEach((pos, region) -> {
+                try {
+                    region.close();
+                } catch (IOException e) {
+                    ref.compareAndSet(null, e);
+                }
+            });
+            this.regions.clear();
+
+            if (ref.get() != null) {
+                throw ref.get();
+            }
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -120,8 +150,16 @@ public class World implements AutoCloseable {
      * @throws IOException if an IO exception occurs you dummy
      */
     public ByteBuf getChunk(int x, int z) throws IOException {
-        RegionFile region = this.regions.get(new Vec2i(x >> 5, z >> 5));
-        return region == null ? null : region.readDirect(x & 0x1F, z & 0x1F);
+        Lock lock = this.lock.readLock();
+        lock.lock();
+        try {
+            this.assertOpen();
+
+            RegionFile region = this.regions.get(new Vec2i(x >> 5, z >> 5));
+            return region == null ? null : region.readDirect(x & 0x1F, z & 0x1F);
+        } finally {
+            lock.unlock();
+        }
     }
 
     /**
@@ -141,7 +179,11 @@ public class World implements AutoCloseable {
         ByteBuf recompressed = PooledByteBufAllocator.DEFAULT.ioBuffer(buf.readableBytes() + RegionConstants.LENGTH_HEADER_SIZE)
                 .writeInt(-1)
                 .writeByte(RegionConstants.ID_ZLIB);
+        Lock lock = this.lock.readLock();
+        lock.lock();
         try {
+            this.assertOpen();
+
             ByteBuf temp = PooledByteBufAllocator.DEFAULT.ioBuffer(buf.readableBytes() << 4);
             try (Handle<PInflater> handleInflater = INFLATER_POOL.get();
                  Handle<PDeflater> handleDeflater = DEFLATER_POOL.get()) {
@@ -175,7 +217,14 @@ public class World implements AutoCloseable {
             RegionFile region = this.regions.computeIfAbsent(new Vec2i(x >> 5, z >> 5), this.regionCreator);
             region.writeDirect(x, z, recompressed.retain());
         } finally {
+            lock.unlock();
             recompressed.release();
+        }
+    }
+
+    protected void assertOpen() {
+        if (this.closed) {
+            throw new AlreadyReleasedException();
         }
     }
 }

@@ -22,6 +22,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.mapdl.common.util.Hidden;
 
 /**
@@ -35,6 +36,8 @@ import net.daporkchop.mapdl.common.util.Hidden;
 @Setter
 @Accessors(fluent = true, chain = true)
 public class User {
+    protected static final long SENTCHUNKS_OFFSET = PUnsafe.pork_getOffset(User.class, "sentChunks");
+
     @NonNull
     protected String name;
 
@@ -42,4 +45,17 @@ public class User {
     @NonNull
     @Hidden
     protected String password;
+
+    @Setter(AccessLevel.NONE)
+    protected volatile long sentChunks = 0L;
+
+    /**
+     * Increments this user's sent chunks counter.
+     *
+     * @return this {@link User} instance
+     */
+    public User incrementSentChunks() {
+        PUnsafe.getAndAddLong(this, SENTCHUNKS_OFFSET, 1L);
+        return this;
+    }
 }
