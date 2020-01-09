@@ -57,7 +57,7 @@ public final class ServerRequestHandler implements ServerHandler {
 
         this.handlers.put("/api/submit", (query, message, response) -> {
             if (query.method() != HttpMethod.POST) {
-                throw GenericHttpException.Method_Not_Allowed;
+                throw StatusCodes.Method_Not_Allowed.exception();
             }
             User user = this.getAuthenticatedUser(message.headers());
             String dimension = message.headers().getValue("mapdl-dim");
@@ -89,7 +89,7 @@ public final class ServerRequestHandler implements ServerHandler {
 
         this.handlers.put("/api/register", (query, message, response) -> {
             if (query.method() != HttpMethod.POST)  {
-                throw GenericHttpException.Method_Not_Allowed;
+                throw StatusCodes.Method_Not_Allowed.exception();
             }
 
             //TODO: validate person registering
@@ -126,11 +126,11 @@ public final class ServerRequestHandler implements ServerHandler {
         String username = headers.getValue("mapdl-username");
         String password = headers.getValue("mapdl-password");
         if (username == null || password == null) {
-            throw GenericHttpException.Unauthorized;
+            throw StatusCodes.Unauthorized.exception();
         }
         User user = this.server.users().get(username);
         if (user == null) {
-            throw GenericHttpException.Forbidden;
+            throw StatusCodes.Forbidden.exception();
         }
         String saltedHash = Hexadecimal.encode(Digest.SHA3_256.start()
                 .append(username.getBytes(StandardCharsets.UTF_8))
@@ -138,7 +138,7 @@ public final class ServerRequestHandler implements ServerHandler {
                 .append(password.getBytes(StandardCharsets.UTF_8))
                 .hashToByteArray());
         if (!saltedHash.equals(user.password())) {
-            throw GenericHttpException.Forbidden;
+            throw StatusCodes.Forbidden.exception();
         }
         return user;
     }
@@ -154,7 +154,7 @@ public final class ServerRequestHandler implements ServerHandler {
         if (handler != null) {
             handler.acceptThrowing(query, message, response);
         } else {
-            throw GenericHttpException.Not_Found;
+            throw StatusCodes.Not_Found.exception();
         }
     }
 }
