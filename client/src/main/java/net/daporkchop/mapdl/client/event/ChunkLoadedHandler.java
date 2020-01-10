@@ -13,56 +13,19 @@
  *
  */
 
-buildscript {
-    repositories {
-        mavenLocal()
-        jcenter()
-        maven {
-            name = "forge"
-            url = "https://files.minecraftforge.net/maven"
-        }
-    }
-    dependencies {
-        classpath "net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT"
-    }
-}
+package net.daporkchop.mapdl.client.event;
 
-apply plugin: "net.minecraftforge.gradle.forge"
+import lombok.NonNull;
+import net.minecraftforge.event.world.ChunkEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-minecraft {
-    version = project.ext.mcVersion + "-" + project.ext.forgeVersion
-    runDir = "run"
-
-    mappings = project.ext.mcpVersion
-    makeObfSourceJar = false
-
-    //coreMod = "net.daporkchop.mapdl.client.mixin.MixinLoaderForge"
-}
-
-configurations.all {
-    resolutionStrategy {
-        //fix a stupid forgegradle bug that causes crashes in deobf
-        force("com.google.guava:guava:21.0")
-    }
-}
-
-dependencies {
-    compile project(":common")
-
-    compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
-}
-
-processResources {
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.ext.mcVersion
-
-    from(sourceSets.main.resources.srcDirs) {
-        include "mcmod.info"
-
-        expand "version": project.version, "mcversion": project.ext.mcVersion
-    }
-
-    from(sourceSets.main.resources.srcDirs) {
-        exclude "mcmod.info"
+/**
+ * Handles chunks being loaded, encodes them, and writes them to the local database to be enqueued for sending.
+ *
+ * @author DaPorkchop_
+ */
+public final class ChunkLoadedHandler {
+    @SubscribeEvent
+    public void onChunk(@NonNull ChunkEvent.Load event) {
     }
 }

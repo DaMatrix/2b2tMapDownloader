@@ -15,25 +15,30 @@
 
 package net.daporkchop.mapdl.client;
 
+import io.netty.util.concurrent.EventExecutorGroup;
+import io.netty.util.concurrent.UnorderedThreadPoolEventExecutor;
+import net.daporkchop.lib.common.misc.threadfactory.ThreadFactoryBuilder;
+import net.daporkchop.mapdl.client.event.GlobalHandler;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.config.Config;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLConstructionEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
-@Mod(modid = Client.MOD_ID, name = Client.MOD_NAME, version = Client.VERSION)
+@Mod(modid = Client.MOD_ID, name = Client.MOD_NAME, version = Client.VERSION, clientSideOnly = true)
 public class Client {
-    public static final String MOD_ID = "mapdl-client";
+    public static final String MOD_ID   = "mapdl-client";
     public static final String MOD_NAME = "2b2t Map Downloader";
-    public static final String VERSION = "0.0.1";
+    public static final String VERSION  = "0.0.1";
+
+    public static EventExecutorGroup HTTP_WORKER_POOL;
 
     @Mod.Instance(MOD_ID)
     public static Client INSTANCE;
 
     @Mod.EventHandler
-    public void construction(FMLConstructionEvent event)    {
+    public void construction(FMLConstructionEvent event) {
         MinecraftForge.EVENT_BUS.register(Conf.class);
     }
 
@@ -49,5 +54,9 @@ public class Client {
     public void postinit(FMLPostInitializationEvent event) {
         //set initial value of hashed password
         Conf.updateHashedPassword();
+
+        HTTP_WORKER_POOL = new UnorderedThreadPoolEventExecutor(Conf.HTTP_WORKER_THREADS, new ThreadFactoryBuilder().name("2b2tMapDownloader HTTP worker thread #%d").formatId().build());
+
+        MinecraftForge.EVENT_BUS.register(new GlobalHandler());
     }
 }

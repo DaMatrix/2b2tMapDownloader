@@ -13,56 +13,38 @@
  *
  */
 
-buildscript {
-    repositories {
-        mavenLocal()
-        jcenter()
-        maven {
-            name = "forge"
-            url = "https://files.minecraftforge.net/maven"
+package net.daporkchop.mapdl.client.event;
+
+import lombok.NonNull;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+
+import java.net.InetSocketAddress;
+
+/**
+ * This handler is always registered. It handles global events regardless of the currently connected server.
+ *
+ * @author DaPorkchop_
+ */
+public final class GlobalHandler {
+    protected final ChunkLoadedHandler chunkHandler = new ChunkLoadedHandler();
+
+    @SubscribeEvent
+    public void onConnect(@NonNull FMLNetworkEvent.ClientConnectedToServerEvent event) {
+        InetSocketAddress address = (InetSocketAddress) event.getManager().getRemoteAddress();
+        if (!event.isLocal() && ("2b2t.org".equalsIgnoreCase(address.getHostName())
+                || "2b2t.org".equalsIgnoreCase(address.getHostString()))) {
+            System.out.println("Joined 2b2t! Enabling chunk saving.");
+            MinecraftForge.EVENT_BUS.register(this.chunkHandler);
+        } else {
+            System.out.println("Joined a world that isn't 2b2t, not enabling chunk saving.");
         }
     }
-    dependencies {
-        classpath "net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT"
-    }
-}
 
-apply plugin: "net.minecraftforge.gradle.forge"
-
-minecraft {
-    version = project.ext.mcVersion + "-" + project.ext.forgeVersion
-    runDir = "run"
-
-    mappings = project.ext.mcpVersion
-    makeObfSourceJar = false
-
-    //coreMod = "net.daporkchop.mapdl.client.mixin.MixinLoaderForge"
-}
-
-configurations.all {
-    resolutionStrategy {
-        //fix a stupid forgegradle bug that causes crashes in deobf
-        force("com.google.guava:guava:21.0")
-    }
-}
-
-dependencies {
-    compile project(":common")
-
-    compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
-}
-
-processResources {
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.ext.mcVersion
-
-    from(sourceSets.main.resources.srcDirs) {
-        include "mcmod.info"
-
-        expand "version": project.version, "mcversion": project.ext.mcVersion
-    }
-
-    from(sourceSets.main.resources.srcDirs) {
-        exclude "mcmod.info"
+    @SubscribeEvent
+    public void onDisconnect(@NonNull FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+        System.out.println("Disabling chunk saving.");
+        MinecraftForge.EVENT_BUS.unregister(this.chunkHandler);
     }
 }

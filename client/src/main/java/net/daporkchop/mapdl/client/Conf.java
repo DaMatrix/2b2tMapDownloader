@@ -15,6 +15,7 @@
 
 package net.daporkchop.mapdl.client;
 
+import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.hash.util.Digest;
 import net.minecraftforge.common.config.Config;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
@@ -27,7 +28,7 @@ import java.nio.charset.StandardCharsets;
  *
  * @author DaPorkchop_
  */
-@Config(modid = Client.MOD_ID, name = Client.MOD_NAME, category = "")
+@Config(modid = Client.MOD_ID, name = Client.MOD_NAME)
 public final class Conf {
     @Config.Comment({
             "Your username on the mapdl server."
@@ -51,16 +52,26 @@ public final class Conf {
     @Config.Name("Server URL")
     public static String SERVER_URL = "http://[::1]:8080/";
 
+    @Config.Comment({
+            "The number of concurrent HTTP worker threads to use.",
+            "This is also the number of outgoing requests to the mapdl server that will be active at any one time.",
+            "Defaults to the number of CPU cores."
+    })
+    @Config.RangeInt(min = 1, max = 8192)
+    @Config.RequiresMcRestart
+    @Config.Name("HTTP Worker Threads")
+    public static int HTTP_WORKER_THREADS = PorkUtil.CPU_COUNT;
+
     @SubscribeEvent
-    private static void onConfigReload(ConfigChangedEvent.OnConfigChangedEvent event)   {
-        if (!Client.MOD_ID.equals(event.getModID()))    {
+    public static void onConfigReload(ConfigChangedEvent.OnConfigChangedEvent event) {
+        if (!Client.MOD_ID.equals(event.getModID())) {
             return;
         }
 
         updateHashedPassword();
     }
 
-    public static void updateHashedPassword()   {
+    public static void updateHashedPassword() {
         HASHED_PASSWORD = Digest.SHA3_256.start()
                 .append(USERNAME.getBytes(StandardCharsets.UTF_8))
                 .append(':')
