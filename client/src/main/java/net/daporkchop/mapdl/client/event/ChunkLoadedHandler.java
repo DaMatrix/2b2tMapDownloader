@@ -15,17 +15,61 @@
 
 package net.daporkchop.mapdl.client.event;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import lombok.NonNull;
+import net.daporkchop.lib.binary.stream.DataOut;
+import net.daporkchop.lib.common.misc.file.PFiles;
+import net.daporkchop.mapdl.client.Client;
+import net.daporkchop.mapdl.client.skid.ChunkToNBT;
+import net.daporkchop.mapdl.client.util.ChunkSendTask;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.event.world.ChunkEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.zip.DeflaterOutputStream;
+
 /**
- * Handles chunks being loaded, encodes them, and writes them to the local database to be enqueued for sending.
+ * When a chunk is unloaded, this encodes it and enqueues it for compression, local storage and transmission.
  *
  * @author DaPorkchop_
  */
 public final class ChunkLoadedHandler {
     @SubscribeEvent
-    public void onChunk(@NonNull ChunkEvent.Load event) {
+    public void onChunkUnload(@NonNull ChunkEvent.Unload event) {
+        NBTTagCompound compound = ChunkToNBT.encode(event.getChunk());
+
+        ByteBuf buf = PooledByteBufAllocator.DEFAULT.ioBuffer(1048576, 1048576 * 4);
+        try {
+            String fileName = String.format("c.%d.%d.mcc", event.getChunk().x, event.getChunk().z);
+            File tempFile = new File(Client.INSTANCE.tempCacheDir, fileName);
+
+            try (OutputStream out = DataOut.wrap(buf)) {
+                CompressedStreamTools.writeCompressed(compound, out);
+            }
+            compound = null; //allow gc
+
+            ByteBuf actualBuf = Unpooled.directBuffer(buf.readableBytes(), buf.readableBytes());
+            actualBuf.writeBytes(buf);
+
+            //add to queue for sending later
+            Client.HTTP_WORKER_POOL.submit(new ChunkSendTask(
+                    actualBuf,
+                    event.getChunk().x,
+                    event.getChunk().z,
+                    event.getChunk().getWorld().provider.getDimension()
+            ));
+        } catch (IOException e) {
+            System.err.printf("Unable to save chunk: %d, %d!\n", event.getChunk().x,  event.getChunk().z);
+            e.printStackTrace(System.err);
+        } finally {
+            buf.release();
+        }
     }
 }

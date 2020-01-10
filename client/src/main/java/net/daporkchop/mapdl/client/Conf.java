@@ -16,6 +16,7 @@
 package net.daporkchop.mapdl.client;
 
 import net.daporkchop.lib.common.util.PorkUtil;
+import net.daporkchop.lib.encoding.Hexadecimal;
 import net.daporkchop.lib.hash.util.Digest;
 import net.minecraftforge.common.config.Config;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
@@ -43,7 +44,7 @@ public final class Conf {
     public static String PASSWORD = "";
 
     @Config.Ignore
-    public static byte[] HASHED_PASSWORD;
+    public static String HASHED_PASSWORD;
 
     @Config.Comment({
             "The base URL of the mapdl server.",
@@ -76,6 +77,6 @@ public final class Conf {
                 .append(USERNAME.getBytes(StandardCharsets.UTF_8))
                 .append(':')
                 .append(PASSWORD.getBytes(StandardCharsets.UTF_8))
-                .hashToByteArray();
+                .hash().toHex();
     }
 }

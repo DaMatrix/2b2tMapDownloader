@@ -49,7 +49,7 @@ configurations.all {
 dependencies {
     compile project(":common")
 
-    compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
+    //compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
 }
 
 processResources {

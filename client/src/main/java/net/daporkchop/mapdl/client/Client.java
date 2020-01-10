@@ -17,14 +17,23 @@ package net.daporkchop.mapdl.client;
 
 import io.netty.util.concurrent.EventExecutorGroup;
 import io.netty.util.concurrent.UnorderedThreadPoolEventExecutor;
+import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.common.misc.threadfactory.ThreadFactoryBuilder;
+import net.daporkchop.lib.http.HttpClient;
+import net.daporkchop.lib.http.impl.java.JavaHttpClient;
 import net.daporkchop.mapdl.client.event.GlobalHandler;
+import net.daporkchop.mapdl.client.util.ChunkSendTask;
+import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLConstructionEvent;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+
+import java.io.File;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Mod(modid = Client.MOD_ID, name = Client.MOD_NAME, version = Client.VERSION, clientSideOnly = true)
 public class Client {
@@ -34,8 +43,13 @@ public class Client {
 
     public static EventExecutorGroup HTTP_WORKER_POOL;
 
+    public static final HttpClient HTTP_CLIENT = new JavaHttpClient();
+
     @Mod.Instance(MOD_ID)
     public static Client INSTANCE;
+
+    public File baseCacheDir;
+    public File tempCacheDir;
 
     @Mod.EventHandler
     public void construction(FMLConstructionEvent event) {
@@ -52,6 +66,9 @@ public class Client {
 
     @Mod.EventHandler
     public void postinit(FMLPostInitializationEvent event) {
+        this.baseCacheDir = PFiles.ensureDirectoryExists(new File(Minecraft.getMinecraft().gameDir, "2b2tMapDownloader/local/chunk-cache/"));
+        PFiles.rmContents(this.tempCacheDir = PFiles.ensureDirectoryExists(new File(Minecraft.getMinecraft().gameDir, "2b2tMapDownloader/local/temp-cache/")));
+
         //set initial value of hashed password
         Conf.updateHashedPassword();
 
