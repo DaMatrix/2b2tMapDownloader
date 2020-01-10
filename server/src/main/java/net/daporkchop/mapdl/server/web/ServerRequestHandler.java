@@ -25,6 +25,8 @@ import net.daporkchop.lib.common.function.throwing.ETriConsumer;
 import net.daporkchop.lib.encoding.Hexadecimal;
 import net.daporkchop.lib.hash.util.Digest;
 import net.daporkchop.lib.http.HttpMethod;
+import net.daporkchop.lib.http.entity.HttpEntity;
+import net.daporkchop.lib.http.entity.ReusableByteBufHttpEntity;
 import net.daporkchop.lib.http.entity.content.type.StandardContentType;
 import net.daporkchop.lib.http.header.map.HeaderMap;
 import net.daporkchop.lib.http.message.Message;
@@ -42,6 +44,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static net.daporkchop.mapdl.server.util.ServerConstants.*;
+import static net.daporkchop.lib.logging.Logging.*;
 
 /**
  * Handles incoming HTTP requests.
@@ -49,6 +52,8 @@ import static net.daporkchop.mapdl.server.util.ServerConstants.*;
  * @author DaPorkchop_
  */
 public final class ServerRequestHandler implements ServerHandler {
+    protected static final HttpEntity EMPTY_ENTITY = new ReusableByteBufHttpEntity(StandardContentType.TEXT_PLAIN_ASCII, Unpooled.EMPTY_BUFFER);
+
     protected final Map<String, ETriConsumer<Query, Message, ResponseBuilder>> handlers = new HashMap<>();
     protected final Server server;
 
@@ -72,19 +77,12 @@ public final class ServerRequestHandler implements ServerHandler {
             if (world == null) {
                 throw new GenericHttpException(StatusCodes.Bad_Request, "Unknown dimension: " + dimension);
             }
-            world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
+            int size = world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
             user.incrementSentChunks();
 
-            ByteBuf buf = PooledByteBufAllocator.DEFAULT.ioBuffer();
-            try {
-                PAppendable out = new UTF8ByteBufAppendable(buf);
-                GSON_VISIBLE.toJson(user, out);
+            response.status(StatusCodes.OK).body(EMPTY_ENTITY);
 
-                response.status(StatusCodes.OK)
-                        .body(StandardContentType.APPLICATION_JSON_UTF8, buf.retain());
-            } finally {
-                buf.release();
-            }
+            logger.trace("User \"%s\" submitted chunk (%s,%s) @ %.2f KiB", user.name(), x, z, size / 1024.0d);
         });
 
         this.handlers.put("/api/register", (query, message, response) -> {

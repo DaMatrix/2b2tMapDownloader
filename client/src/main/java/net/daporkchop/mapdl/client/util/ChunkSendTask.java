@@ -57,7 +57,7 @@ public final class ChunkSendTask implements IORunnable {
     @Override
     public void runThrowing() throws IOException {
         try {
-            Request<Void> request = Client.HTTP_CLIENT.request(HttpMethod.GET, Conf.SERVER_URL + "api/submit")
+            Request<String> request = Client.HTTP_CLIENT.request(HttpMethod.POST, Conf.SERVER_URL + "api/submit")
                     .body(new ReusableByteBufHttpEntity(StandardContentType.APPLICATION_OCTET_STREAM, this.data))
                     .userAgent("PorkLib/" + PorkUtil.PORKLIB_VERSION + " 2b2tMapDownloader/" + Client.VERSION)
                     .header("mapdl-username", Conf.USERNAME)
@@ -65,16 +65,19 @@ public final class ChunkSendTask implements IORunnable {
                     .header("mapdl-dim", String.valueOf(this.dim))
                     .header("mapdl-x", String.valueOf(this.x))
                     .header("mapdl-z", String.valueOf(this.z))
+                    .aggregateToString()
                     .send();
 
-            Future<ResponseBody<Void>> bodyFuture = request.bodyFuture().awaitUninterruptibly();
+            Future<ResponseBody<String>> bodyFuture = request.bodyFuture().awaitUninterruptibly();
 
-            if (!bodyFuture.isSuccess())    {
+            if (!bodyFuture.isSuccess()) {
                 //handle failure somehow
                 //TODO: maybe write to disk or something?
 
                 Minecraft.getMinecraft().addScheduledTask(() -> PUnsafe.throwException(bodyFuture.cause()));
             }
+        } catch (Exception e)   {
+            e.printStackTrace();
         } finally {
             this.data.release();
         }

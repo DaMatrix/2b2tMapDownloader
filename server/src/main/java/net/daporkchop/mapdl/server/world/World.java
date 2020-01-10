@@ -172,9 +172,10 @@ public class World implements AutoCloseable {
      * @param x   the X coordinate of the chunk
      * @param z   the Z coordinate of the chunk
      * @param buf a {@link ByteBuf} containing the chunk data
+     * @return the size of the compressed chunk
      * @throws IOException if an IO exception occurs you dummy
      */
-    public void putChunk(int x, int z, @NonNull ByteBuf buf) throws IOException {
+    public int putChunk(int x, int z, @NonNull ByteBuf buf) throws IOException {
         //re-compress chunk at max level to obtain best compression ratio
         ByteBuf recompressed = PooledByteBufAllocator.DEFAULT.ioBuffer(buf.readableBytes() + RegionConstants.LENGTH_HEADER_SIZE)
                 .writeInt(-1)
@@ -213,9 +214,11 @@ public class World implements AutoCloseable {
             }
 
             recompressed.setInt(0, recompressed.writerIndex() - RegionConstants.LENGTH_HEADER_SIZE);
+            int size = recompressed.readableBytes();
 
             RegionFile region = this.regions.computeIfAbsent(new Vec2i(x >> 5, z >> 5), this.regionCreator);
-            region.writeDirect(x, z, recompressed.retain());
+            region.writeDirect(x & 0x1F, z & 0x1F, recompressed.retain());
+            return size;
         } finally {
             lock.unlock();
             recompressed.release();

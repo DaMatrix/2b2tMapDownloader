@@ -17,6 +17,7 @@ package net.daporkchop.mapdl.client.event;
 
 import lombok.NonNull;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 
@@ -40,11 +41,5 @@ public final class GlobalHandler {
         } else {
             System.out.println("Joined a world that isn't 2b2t, not enabling chunk saving.");
         }
-    }
-
-    @SubscribeEvent
-    public void onDisconnect(@NonNull FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
-        System.out.println("Disabling chunk saving.");
-        MinecraftForge.EVENT_BUS.unregister(this.chunkHandler);
     }
 }
