@@ -92,11 +92,11 @@ public final class ChunkSendTask implements IORunnable {
             Request<String> request = Client.HTTP_CLIENT.request(HttpMethod.POST, Conf.SERVER_URL + "api/submit")
                     .body(new ReusableByteBufHttpEntity(StandardContentType.APPLICATION_OCTET_STREAM, compressedBuf))
                     .userAgent("PorkLib/" + PorkUtil.PORKLIB_VERSION + " 2b2tMapDownloader/" + Client.VERSION)
-                    .header("mapdl-username", Conf.USERNAME)
-                    .header("mapdl-password", Conf.HASHED_PASSWORD)
-                    .header("mapdl-dim", String.valueOf(this.dim))
-                    .header("mapdl-x", String.valueOf(this.x))
-                    .header("mapdl-z", String.valueOf(this.z))
+                    .putHeader("mapdl-username", Conf.USERNAME)
+                    .putHeader("mapdl-password", Conf.HASHED_PASSWORD)
+                    .putHeader("mapdl-dim", String.valueOf(this.dim))
+                    .putHeader("mapdl-x", String.valueOf(this.x))
+                    .putHeader("mapdl-z", String.valueOf(this.z))
                     .aggregateToString()
                     .send();
 

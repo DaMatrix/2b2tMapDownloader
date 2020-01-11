@@ -18,7 +18,7 @@ package net.daporkchop.mapdl.client.event;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import lombok.NonNull;
 import net.daporkchop.mapdl.client.Client;
-import net.daporkchop.mapdl.client.skid.ChunkToNBT;
+import net.daporkchop.mapdl.client.util.ChunkToNBT;
 import net.daporkchop.mapdl.client.util.ChunkSendTask;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ChunkProviderClient;

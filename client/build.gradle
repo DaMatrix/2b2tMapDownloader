@@ -49,6 +49,10 @@ configurations.all {
 dependencies {
     compile project(":common")
 
+    compile ("net.daporkchop.lib:nbt:$porklibVersion") {
+        exclude group: "io.netty"
+    }
+
     //compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
 }
 

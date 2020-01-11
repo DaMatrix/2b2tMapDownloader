@@ -21,6 +21,7 @@ import net.daporkchop.lib.common.misc.file.PFiles;
 import net.daporkchop.lib.common.misc.threadfactory.ThreadFactoryBuilder;
 import net.daporkchop.lib.http.HttpClient;
 import net.daporkchop.lib.http.impl.java.JavaHttpClient;
+import net.daporkchop.lib.http.impl.java.JavaHttpClientBuilder;
 import net.daporkchop.mapdl.client.event.GlobalHandler;
 import net.daporkchop.mapdl.client.util.ChunkSendTask;
 import net.minecraft.client.Minecraft;
@@ -43,7 +44,9 @@ public class Client {
 
     public static EventExecutorGroup HTTP_WORKER_POOL;
 
-    public static final HttpClient HTTP_CLIENT = new JavaHttpClient();
+    public static final HttpClient HTTP_CLIENT = new JavaHttpClientBuilder()
+            .blockingRequests(true)
+            .build();
 
     @Mod.Instance(MOD_ID)
     public static Client INSTANCE;

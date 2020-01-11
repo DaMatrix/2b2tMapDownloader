@@ -24,8 +24,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Config options for the client.
@@ -57,14 +55,15 @@ public final class Conf {
     public static String SERVER_URL = "http://[::1]:8080/";
 
     @Config.Comment({
-            "The number of concurrent HTTP worker threads to use.",
-            "This is also the number of outgoing requests to the mapdl server that will be active at any one time.",
-            "Defaults to the number of CPU cores."
+            "The number of concurrent worker threads to use.",
+            "Worker threads will handle compression and sending of chunks, as well as temporarily writing them to a disk cache.",
+            "This is also the maximum number of outgoing requests to the mapdl server that will be active at any one time.",
+            "Defaults to 2 * the number of CPU cores."
     })
     @Config.RangeInt(min = 1, max = 8192)
     @Config.RequiresMcRestart
-    @Config.Name("HTTP Worker Threads")
-    public static int HTTP_WORKER_THREADS = PorkUtil.CPU_COUNT;
+    @Config.Name("Worker Threads")
+    public static int HTTP_WORKER_THREADS = PorkUtil.CPU_COUNT << 1;
 
     @Config.Comment({
             "Server addresses that will be considered to be '2b2t' when joining.",

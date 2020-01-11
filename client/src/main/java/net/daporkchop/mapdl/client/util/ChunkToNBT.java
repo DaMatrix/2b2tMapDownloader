@@ -13,7 +13,7 @@
  *
  */
 
-package net.daporkchop.mapdl.client.skid;
+package net.daporkchop.mapdl.client.util;
 
 import lombok.NonNull;
 import lombok.experimental.UtilityClass;
@@ -29,18 +29,18 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import java.util.List;
 
 /**
- * Partially skidded from:
+ * Initially skidded from:
  * https://github.com/Pokechu22/WorldDownloader/blob/v4/share/src/main/java/wdl/WDLChunkLoader.java
  * https://github.com/Pokechu22/WorldDownloader/blob/v4/share/src/main/java/wdl/WDLChunkLoader_1_12.java
  * <p>
- * Simply the minimal code required for encoding a {@link Chunk} to an {@link NBTTagCompound}.
+ * I've basically rewritten the entire thing now though...
  *
  * @author DaPorkchop_
  */
 @UtilityClass
 public class ChunkToNBT {
-    private static final byte[] EMPTY_LIGHT_ARRAY = new byte[2048];
-    private static final NBTTagList EMPTY_LIST_TAG = new NBTTagList();
+    private static final byte[]     EMPTY_LIGHT_ARRAY = new byte[2048];
+    private static final NBTTagList EMPTY_LIST_TAG    = new NBTTagList();
 
     public NBTTagCompound encode(@NonNull Chunk chunk) {
         NBTTagCompound compound = new NBTTagCompound();
@@ -74,7 +74,7 @@ public class ChunkToNBT {
                 NibbleArray blocklightArray = chunkSection.getBlockLight();
                 sectionNBT.setByteArray("BlockLight", blocklightArray.getData());
 
-                if (blocklightArray.getData().length != EMPTY_LIGHT_ARRAY.length)   {
+                if (blocklightArray.getData().length != EMPTY_LIGHT_ARRAY.length) {
                     throw new IllegalStateException("Invalid block light length: " + blocklightArray.getData().length);
                 }
 
