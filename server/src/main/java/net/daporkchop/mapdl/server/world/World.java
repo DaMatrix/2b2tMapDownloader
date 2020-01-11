@@ -172,56 +172,24 @@ public class World implements AutoCloseable {
      * @param x   the X coordinate of the chunk
      * @param z   the Z coordinate of the chunk
      * @param buf a {@link ByteBuf} containing the chunk data
-     * @return the size of the compressed chunk
      * @throws IOException if an IO exception occurs you dummy
      */
-    public int putChunk(int x, int z, @NonNull ByteBuf buf) throws IOException {
-        //re-compress chunk at max level to obtain best compression ratio
-        ByteBuf recompressed = PooledByteBufAllocator.DEFAULT.ioBuffer(buf.readableBytes() + RegionConstants.LENGTH_HEADER_SIZE)
-                .writeInt(-1)
-                .writeByte(RegionConstants.ID_ZLIB);
+    public void putChunk(int x, int z, @NonNull ByteBuf buf) throws IOException {
+        if (buf.getInt(0) != buf.readableBytes() - 4) {
+            throw new IllegalArgumentException("Invalid length prefix!");
+        } else if (buf.getByte(4) != RegionConstants.ID_GZIP && buf.getByte(4) != RegionConstants.ID_ZLIB)   {
+            throw new IllegalArgumentException("Invalid compression version: " + (buf.getByte(4) & 0xFF));
+        }
+
         Lock lock = this.lock.readLock();
         lock.lock();
         try {
             this.assertOpen();
 
-            ByteBuf temp = PooledByteBufAllocator.DEFAULT.ioBuffer(buf.readableBytes() << 4);
-            try (Handle<PInflater> handleInflater = INFLATER_POOL.get();
-                 Handle<PDeflater> handleDeflater = DEFLATER_POOL.get()) {
-                PInflater inflater = handleInflater.value();
-                PDeflater deflater = handleDeflater.value();
-
-                switch (buf.readByte() & 0xFF) {
-                    case RegionConstants.ID_GZIP:
-                    case RegionConstants.ID_ZLIB:
-                        try {
-                            inflater.inflate(buf, temp); //native zlib is magic
-                        } finally {
-                            inflater.reset();
-                        }
-                        try {
-                            deflater.deflate(temp, recompressed);
-                        } finally {
-                            deflater.reset();
-                        }
-                        break;
-                    default:
-                        throw new IllegalArgumentException("Unknown compression mode:" + (buf.getByte(buf.readerIndex() - 1) & 0xFF));
-                }
-            } finally {
-                temp.release();
-                temp = null;
-            }
-
-            recompressed.setInt(0, recompressed.writerIndex() - RegionConstants.LENGTH_HEADER_SIZE);
-            int size = recompressed.readableBytes();
-
             RegionFile region = this.regions.computeIfAbsent(new Vec2i(x >> 5, z >> 5), this.regionCreator);
-            region.writeDirect(x & 0x1F, z & 0x1F, recompressed.retain());
-            return size;
+            region.writeDirect(x & 0x1F, z & 0x1F, buf.retain());
         } finally {
             lock.unlock();
-            recompressed.release();
         }
     }
 

@@ -1,11 +1,11 @@
 [
   {
-    "modid": "client",
+    "modid": "mapdl-client",
     "name": "2b2t Map Downloader",
     "description": "The client mod for the 2b2t map downloader project",
     "version": "${version}",
     "mcversion": "${mcversion}",
-    "url": "",
+    "url": "https://daporkchop.net",
     "updateUrl": "",
     "authorList": [
       "DaPorkchop_"
@@ -14,7 +14,6 @@
     "logoFile": "",
     "screenshots": [],
     "dependencies": [
-      ""
     ]
   }
 ]

@@ -39,6 +39,8 @@ import java.util.List;
  */
 @UtilityClass
 public class ChunkToNBT {
+    private static final byte[] EMPTY_LIGHT_ARRAY = new byte[2048];
+
     public NBTTagCompound encode(@NonNull Chunk chunk) {
         NBTTagCompound compound = new NBTTagCompound();
 
@@ -69,14 +71,17 @@ public class ChunkToNBT {
                 }
 
                 NibbleArray blocklightArray = chunkSection.getBlockLight();
-                int lightArrayLen = blocklightArray.getData().length;
                 sectionNBT.setByteArray("BlockLight", blocklightArray.getData());
+
+                if (blocklightArray.getData().length != EMPTY_LIGHT_ARRAY.length)   {
+                    throw new IllegalStateException("Invalid block light length: " + blocklightArray.getData().length);
+                }
 
                 NibbleArray skylightArray = chunkSection.getSkyLight();
                 if (skylightArray != null) {
                     sectionNBT.setByteArray("SkyLight", skylightArray.getData());
                 } else {
-                    sectionNBT.setByteArray("SkyLight", new byte[lightArrayLen]);
+                    sectionNBT.setByteArray("SkyLight", EMPTY_LIGHT_ARRAY);
                 }
 
                 chunkSectionList.appendTag(sectionNBT);

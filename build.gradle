@@ -66,8 +66,12 @@ subprojects {
     }
 
     dependencies {
-        compile "net.daporkchop.lib:hash:$porklibVersion"
-        compile "net.daporkchop.lib:http:$porklibVersion"
+        compile ("net.daporkchop.lib:hash:$porklibVersion") {
+            exclude group: "io.netty"
+        }
+        compile ("net.daporkchop.lib:http:$porklibVersion") {
+            exclude group: "io.netty"
+        }
 
         testCompile "junit:junit:$junitVersion"
 

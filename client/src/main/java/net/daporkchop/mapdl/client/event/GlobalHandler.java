@@ -16,6 +16,7 @@
 package net.daporkchop.mapdl.client.event;
 
 import lombok.NonNull;
+import net.daporkchop.mapdl.client.Conf;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -34,8 +35,7 @@ public final class GlobalHandler {
     @SubscribeEvent
     public void onConnect(@NonNull FMLNetworkEvent.ClientConnectedToServerEvent event) {
         InetSocketAddress address = (InetSocketAddress) event.getManager().getRemoteAddress();
-        if (!event.isLocal() && ("2b2t.org".equalsIgnoreCase(address.getHostName())
-                || "2b2t.org".equalsIgnoreCase(address.getHostString()))) {
+        if (Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostName()) || Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostString())) {
             System.out.println("Joined 2b2t! Enabling chunk saving.");
             MinecraftForge.EVENT_BUS.register(this.chunkHandler);
         } else {

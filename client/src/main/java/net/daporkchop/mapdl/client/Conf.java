@@ -16,13 +16,16 @@
 package net.daporkchop.mapdl.client;
 
 import net.daporkchop.lib.common.util.PorkUtil;
-import net.daporkchop.lib.encoding.Hexadecimal;
 import net.daporkchop.lib.hash.util.Digest;
 import net.minecraftforge.common.config.Config;
+import net.minecraftforge.common.config.ConfigManager;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent;
+import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Config options for the client.
@@ -63,14 +66,12 @@ public final class Conf {
     @Config.Name("HTTP Worker Threads")
     public static int HTTP_WORKER_THREADS = PorkUtil.CPU_COUNT;
 
-    @SubscribeEvent
-    public static void onConfigReload(ConfigChangedEvent.OnConfigChangedEvent event) {
-        if (!Client.MOD_ID.equals(event.getModID())) {
-            return;
-        }
-
-        updateHashedPassword();
-    }
+    @Config.Comment({
+            "Server addresses that will be considered to be '2b2t' when joining.",
+            "Chunks will only be sent to the server when you are connected to a server with this address."
+    })
+    @Config.Name("2b2t address")
+    public static String ADDRESS_2B2T = "2b2t.org";
 
     public static void updateHashedPassword() {
         HASHED_PASSWORD = Digest.SHA3_256.start()
@@ -78,5 +79,18 @@ public final class Conf {
                 .append(':')
                 .append(PASSWORD.getBytes(StandardCharsets.UTF_8))
                 .hash().toHex();
+    }
+
+    @Mod.EventBusSubscriber(modid = Client.MOD_ID)
+    private static class EventHandler {
+        @SubscribeEvent
+        public static void onConfigReload(ConfigChangedEvent.OnConfigChangedEvent event) {
+            if (!Client.MOD_ID.equals(event.getModID())) {
+                return;
+            }
+
+            ConfigManager.sync(Client.MOD_ID, Config.Type.INSTANCE);
+            updateHashedPassword();
+        }
     }
 }

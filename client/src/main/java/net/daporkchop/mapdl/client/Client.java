@@ -53,7 +53,6 @@ public class Client {
 
     @Mod.EventHandler
     public void construction(FMLConstructionEvent event) {
-        MinecraftForge.EVENT_BUS.register(Conf.class);
     }
 
     @Mod.EventHandler

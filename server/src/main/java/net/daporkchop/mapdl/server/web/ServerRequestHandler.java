@@ -77,7 +77,8 @@ public final class ServerRequestHandler implements ServerHandler {
             if (world == null) {
                 throw new GenericHttpException(StatusCodes.Bad_Request, "Unknown dimension: " + dimension);
             }
-            int size = world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
+            int size = ((ByteBuf) message.body()).readableBytes();
+            world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
             user.incrementSentChunks();
 
             response.status(StatusCodes.OK).body(EMPTY_ENTITY);
@@ -90,7 +91,8 @@ public final class ServerRequestHandler implements ServerHandler {
                 throw StatusCodes.Method_Not_Allowed.exception();
             }
 
-            //TODO: validate person registering
+            //authenticate the person who's registering the new account
+            this.getAuthenticatedUser(message.headers());
 
             String username = message.headers().getValue("mapdl-new-username");
             String password = message.headers().getValue("mapdl-new-password");
