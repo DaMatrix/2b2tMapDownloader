@@ -21,6 +21,7 @@ import lombok.NonNull;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.cache.Cache;
 import net.daporkchop.lib.common.cache.SoftCache;
+import net.daporkchop.lib.common.cache.ThreadCache;
 import net.daporkchop.lib.common.function.io.IOBiConsumer;
 import net.daporkchop.lib.common.function.io.IOConsumer;
 import net.daporkchop.lib.common.function.io.IOFunction;
@@ -60,7 +61,7 @@ import static net.daporkchop.mapdl.common.SharedConstants.*;
 @Accessors(fluent = true)
 public class World implements AutoCloseable {
     protected static final Pattern        REGION_PATTERN               = Pattern.compile("^r\\.(-?[0-9]+)\\.(-?[0-9]+)\\.mca$");
-    protected static final Cache<Matcher> REGION_PATTERN_MATCHER_CACHE = new SoftCache<>(() -> REGION_PATTERN.matcher(""));
+    protected static final Cache<Matcher> REGION_PATTERN_MATCHER_CACHE = ThreadCache.soft(() -> REGION_PATTERN.matcher(""));
 
     protected static final RegionOpenOptions OPEN_OPTIONS        = new RegionOpenOptions().access(RegionFile.Access.WRITE_REQUIRED);
     protected static final RegionOpenOptions CREATE_OPEN_OPTIONS = new RegionOpenOptions().access(RegionFile.Access.WRITE_REQUIRED).createNewFiles(true);

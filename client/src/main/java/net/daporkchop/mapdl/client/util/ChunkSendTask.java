@@ -81,7 +81,7 @@ public final class ChunkSendTask implements IORunnable {
                 PDeflater deflater = handle.value();
                 try {
                     compressedBuf.writeInt(-1) //length prefix
-                            .writeByte(1); //compression version
+                            .writeByte(2); //compression version (zlib)
                     deflater.deflate(rawBuf, compressedBuf);
                     compressedBuf.setInt(0, compressedBuf.readableBytes() - 4);
                 } finally {
@@ -108,8 +108,9 @@ public final class ChunkSendTask implements IORunnable {
 
                 Minecraft.getMinecraft().addScheduledTask(() -> PUnsafe.throwException(bodyFuture.cause()));
             }
-        } catch (Exception e)   {
-            e.printStackTrace();
+        } catch (Throwable t)   {
+            t.printStackTrace();
+            PUnsafe.throwException(t);
         } finally {
             rawBuf.release();
             compressedBuf.release();

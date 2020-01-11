@@ -14,5 +14,7 @@
  */
 
 dependencies {
-    compile "net.daporkchop.lib:natives:$porklibVersion"
+    compile ("net.daporkchop.lib:natives:$porklibVersion") {
+        exclude group: "io.netty"
+    }
 }

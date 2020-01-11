@@ -40,6 +40,7 @@ import java.util.List;
 @UtilityClass
 public class ChunkToNBT {
     private static final byte[] EMPTY_LIGHT_ARRAY = new byte[2048];
+    private static final NBTTagList EMPTY_LIST_TAG = new NBTTagList();
 
     public NBTTagCompound encode(@NonNull Chunk chunk) {
         NBTTagCompound compound = new NBTTagCompound();
@@ -91,9 +92,7 @@ public class ChunkToNBT {
         compound.setTag("Sections", chunkSectionList);
         compound.setByteArray("Biomes", chunk.getBiomeArray());
 
-        chunk.setHasEntities(false);
-        NBTTagList entityList = /*getEntityList(chunk)*/ new NBTTagList();
-        compound.setTag("Entities", entityList);
+        compound.setTag("Entities", EMPTY_LIST_TAG);
 
         NBTTagList tileEntityList = getTileEntityList(chunk);
         compound.setTag("TileEntities", tileEntityList);
@@ -118,7 +117,9 @@ public class ChunkToNBT {
             compound.setTag("TileTicks", entries);
         }
 
-        return compound;
+        NBTTagCompound rootTag = new NBTTagCompound();
+        rootTag.setTag("Level", compound);
+        return rootTag;
     }
 
     protected NBTTagList getTileEntityList(Chunk chunk) {

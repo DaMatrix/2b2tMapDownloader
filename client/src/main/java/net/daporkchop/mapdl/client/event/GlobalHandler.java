@@ -18,7 +18,6 @@ package net.daporkchop.mapdl.client.event;
 import lombok.NonNull;
 import net.daporkchop.mapdl.client.Conf;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 
@@ -34,12 +33,14 @@ public final class GlobalHandler {
 
     @SubscribeEvent
     public void onConnect(@NonNull FMLNetworkEvent.ClientConnectedToServerEvent event) {
-        InetSocketAddress address = (InetSocketAddress) event.getManager().getRemoteAddress();
-        if (Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostName()) || Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostString())) {
-            System.out.println("Joined 2b2t! Enabling chunk saving.");
-            MinecraftForge.EVENT_BUS.register(this.chunkHandler);
-        } else {
-            System.out.println("Joined a world that isn't 2b2t, not enabling chunk saving.");
+        if (!event.isLocal()) {
+            InetSocketAddress address = (InetSocketAddress) event.getManager().getRemoteAddress();
+            if (Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostName()) || Conf.ADDRESS_2B2T.equalsIgnoreCase(address.getHostString())) {
+                System.out.println("Joined 2b2t! Enabling chunk saving.");
+                MinecraftForge.EVENT_BUS.register(this.chunkHandler);
+                return;
+            }
         }
+        System.out.println("Joined a world that isn't 2b2t, not enabling chunk saving.");
     }
 }
