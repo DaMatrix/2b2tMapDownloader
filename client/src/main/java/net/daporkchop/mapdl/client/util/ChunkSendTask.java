@@ -22,15 +22,12 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.Accessors;
-import net.daporkchop.lib.binary.stream.DataOut;
 import net.daporkchop.lib.common.function.io.IORunnable;
 import net.daporkchop.lib.common.pool.handle.DefaultThreadHandledPool;
 import net.daporkchop.lib.common.pool.handle.Handle;
 import net.daporkchop.lib.common.pool.handle.HandledPool;
 import net.daporkchop.lib.common.util.PorkUtil;
-import net.daporkchop.lib.encoding.Hexadecimal;
 import net.daporkchop.lib.http.HttpMethod;
-import net.daporkchop.lib.http.entity.ByteBufHttpEntity;
 import net.daporkchop.lib.http.entity.ReusableByteBufHttpEntity;
 import net.daporkchop.lib.http.entity.content.type.StandardContentType;
 import net.daporkchop.lib.http.request.Request;
@@ -42,13 +39,11 @@ import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.mapdl.client.Client;
 import net.daporkchop.mapdl.client.Conf;
 import net.minecraft.client.Minecraft;
-import net.minecraft.nbt.CompressedStreamTools;
-import net.minecraft.nbt.NBTTagCompound;
 
-import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.nio.channels.FileChannel;
+import java.nio.file.StandardOpenOption;
 
 /**
  * @author DaPorkchop_
@@ -60,7 +55,7 @@ public final class ChunkSendTask implements IORunnable {
     protected static final HandledPool<PDeflater> DEFLATER_POOL = new DefaultThreadHandledPool<>(() -> PNatives.ZLIB.get().deflater(Zlib.ZLIB_LEVEL_BEST), 1);
 
     @NonNull
-    protected final NBTTagCompound compoundTag;
+    protected final ByteBuf rawChunk;
 
     protected final int x;
     protected final int z;
@@ -69,24 +64,33 @@ public final class ChunkSendTask implements IORunnable {
 
     @Override
     public void runThrowing() throws IOException {
-        ByteBuf rawBuf = PooledByteBufAllocator.DEFAULT.ioBuffer();
         ByteBuf compressedBuf = PooledByteBufAllocator.DEFAULT.ioBuffer();
 
         try {
-            //encode NBT data
-            CompressedStreamTools.write(this.compoundTag, new DataOutputStream(DataOut.wrap(rawBuf)));
-
-            //compress NBT data
-            try (Handle<PDeflater> handle = DEFLATER_POOL.get())    {
-                PDeflater deflater = handle.value();
-                try {
-                    compressedBuf.writeInt(-1) //length prefix
-                            .writeByte(2); //compression version (zlib)
-                    deflater.deflate(rawBuf, compressedBuf);
-                    compressedBuf.setInt(0, compressedBuf.readableBytes() - 4);
-                } finally {
-                    deflater.reset();
+            try {
+                if (false) {
+                    //debug: write uncompressed chunks to individual files
+                    try (FileChannel channel = FileChannel.open(new File(Client.INSTANCE.tempCacheDir, this.x + "." + this.z + ".mcc").toPath(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)) {
+                        this.rawChunk.markReaderIndex();
+                        this.rawChunk.readBytes(channel, 0L, this.rawChunk.readableBytes());
+                        this.rawChunk.resetReaderIndex();
+                    }
                 }
+
+                //compress NBT data
+                try (Handle<PDeflater> handle = DEFLATER_POOL.get()) {
+                    PDeflater deflater = handle.value();
+                    try {
+                        compressedBuf.writeInt(-1) //length prefix
+                                .writeByte(2); //compression version (zlib)
+                        deflater.deflate(this.rawChunk, compressedBuf);
+                        compressedBuf.setInt(0, compressedBuf.readableBytes() - 4);
+                    } finally {
+                        deflater.reset();
+                    }
+                }
+            } finally {
+                this.rawChunk.release();
             }
 
             Request<String> request = Client.HTTP_CLIENT.request(HttpMethod.POST, Conf.SERVER_URL + "api/submit")
@@ -108,11 +112,10 @@ public final class ChunkSendTask implements IORunnable {
 
                 Minecraft.getMinecraft().addScheduledTask(() -> PUnsafe.throwException(bodyFuture.cause()));
             }
-        } catch (Throwable t)   {
+        } catch (Throwable t) {
             t.printStackTrace();
             PUnsafe.throwException(t);
         } finally {
-            rawBuf.release();
             compressedBuf.release();
         }
     }

@@ -15,8 +15,16 @@
 
 package net.daporkchop.mapdl.client.util;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.PooledByteBufAllocator;
 import lombok.NonNull;
 import lombok.experimental.UtilityClass;
+import net.daporkchop.lib.common.cache.Cache;
+import net.daporkchop.lib.common.cache.ThreadCache;
+import net.daporkchop.lib.nbt.streaming.encode.StreamingCompoundTagEncoder;
+import net.daporkchop.lib.nbt.streaming.encode.StreamingListTagEncoder;
+import net.daporkchop.lib.nbt.tag.notch.CompoundTag;
 import net.minecraft.block.Block;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -26,6 +34,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.NibbleArray;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 
+import java.io.DataOutput;
 import java.util.List;
 
 /**
@@ -42,102 +51,97 @@ public class ChunkToNBT {
     private static final byte[]     EMPTY_LIGHT_ARRAY = new byte[2048];
     private static final NBTTagList EMPTY_LIST_TAG    = new NBTTagList();
 
-    public NBTTagCompound encode(@NonNull Chunk chunk) {
-        NBTTagCompound compound = new NBTTagCompound();
+    private static final Cache<byte[]>      BLOCK_IDS_CACHE  = ThreadCache.soft(() -> new byte[4096]);
+    private static final Cache<NibbleArray> BLOCK_DATA_CACHE = ThreadCache.soft(NibbleArray::new);
 
-        compound.setInteger("xPos", chunk.getPos().x);
-        compound.setInteger("zPos", chunk.getPos().z);
-        compound.setLong("LastUpdate", chunk.getWorld().getTotalWorldTime());
-        compound.setIntArray("HeightMap", chunk.getHeightMap());
-        compound.setBoolean("TerrainPopulated", true);  // We always want this
-        compound.setBoolean("LightPopulated", chunk.isLightPopulated());
-        compound.setLong("InhabitedTime", chunk.getInhabitedTime());
+    public void encode(@NonNull Chunk chunk, @NonNull ByteBuf dst) {
+        try (StreamingCompoundTagEncoder rootTag = new StreamingCompoundTagEncoder(dst);
+             StreamingCompoundTagEncoder levelTag = rootTag.pushCompound("Level")) {
+            levelTag.appendInt("xPos", chunk.getPos().x);
+            levelTag.appendInt("zPos", chunk.getPos().z);
+            levelTag.appendLong("LastUpdate", chunk.getWorld().getTotalWorldTime());
+            levelTag.appendIntArray("HeightMap", chunk.getHeightMap());
+            levelTag.appendBoolean("TerrainPopulated", true);  // We always want this
+            levelTag.appendBoolean("LightPopulated", chunk.isLightPopulated());
+            levelTag.appendLong("InhabitedTime", chunk.getInhabitedTime());
 
-        ExtendedBlockStorage[] chunkSections = chunk.getBlockStorageArray();
-        NBTTagList chunkSectionList = new NBTTagList();
-        //boolean hasSky = chunk.getWorld().getWorldType().;
+            try (StreamingListTagEncoder chunkList = levelTag.pushList("Sections", CompoundTag.class)) {
+                byte[] blockIds = BLOCK_IDS_CACHE.get();
+                NibbleArray blockData = BLOCK_DATA_CACHE.get();
 
-        for (ExtendedBlockStorage chunkSection : chunkSections) {
-            if (chunkSection != Chunk.NULL_BLOCK_STORAGE) {
-                NBTTagCompound sectionNBT = new NBTTagCompound();
-                sectionNBT.setByte("Y", (byte) (chunkSection.getYLocation() >> 4 & 255));
-                byte[] buffer = new byte[4096];
-                NibbleArray nibblearray = new NibbleArray();
-                NibbleArray nibblearray1 = chunkSection.getData().getDataForNBT(buffer, nibblearray);
-                sectionNBT.setByteArray("Blocks", buffer);
-                sectionNBT.setByteArray("Data", nibblearray.getData());
+                for (ExtendedBlockStorage storage : chunk.getBlockStorageArray()) {
+                    if (storage == Chunk.NULL_BLOCK_STORAGE) {
+                        continue;
+                    }
+                    try (StreamingCompoundTagEncoder sectionTag = chunkList.pushCompound()) {
+                        sectionTag.appendByte("Y", (byte) ((storage.getYLocation() >> 4) & 0xFF));
 
-                if (nibblearray1 != null) {
-                    sectionNBT.setByteArray("Add", nibblearray1.getData());
+                        NibbleArray add = storage.getData().getDataForNBT(blockIds, blockData);
+                        sectionTag.appendByteArray("Blocks", blockIds);
+                        sectionTag.appendByteArray("Data", blockData.getData());
+                        if (add != null) {
+                            sectionTag.appendByteArray("Add", add.getData());
+                        }
+
+                        sectionTag.appendByteArray("BlockLight", storage.getBlockLight().getData());
+
+                        NibbleArray skyLight = storage.getSkyLight();
+                        sectionTag.appendByteArray("SkyLight", skyLight == null ? EMPTY_LIGHT_ARRAY : skyLight.getData());
+                    }
                 }
+            }
 
-                NibbleArray blocklightArray = chunkSection.getBlockLight();
-                sectionNBT.setByteArray("BlockLight", blocklightArray.getData());
+            levelTag.appendByteArray("Biomes", chunk.getBiomeArray());
 
-                if (blocklightArray.getData().length != EMPTY_LIGHT_ARRAY.length) {
-                    throw new IllegalStateException("Invalid block light length: " + blocklightArray.getData().length);
+            try (StreamingListTagEncoder entityList = levelTag.pushList("Entities", CompoundTag.class)) {
+                //nothing!
+            }
+
+            ByteBuf buf = PooledByteBufAllocator.DEFAULT.ioBuffer();
+            try (StreamingListTagEncoder tileEntityList = levelTag.pushList("TileEntities", CompoundTag.class)) {
+                //we need to do some hackery, because TileEntities are encoded to notchian and not porkian NBT
+
+                DataOutput out = new ByteBufOutputStream(buf);
+                chunk.getTileEntityMap().forEach((pos, te) -> {
+                    NBTTagCompound compound = new NBTTagCompound();
+                    try {
+                        //encode TileEntity to compound tag
+                        te.writeToNBT(compound);
+
+                        //encode compound tag
+                        compound.write(out);
+
+                        //copy encoded tag to dst buffer
+                        dst.writeBytes(buf);
+                        buf.clear();
+
+                        tileEntityList._internal_incrementCounter();
+                    } catch (Exception e) {
+                        System.err.println("Unable to save tile entity! Compound: " + compound);
+                        e.printStackTrace(System.err);
+                    }
+                });
+            } finally {
+                buf.release();
+            }
+
+            List<NextTickListEntry> updateList = chunk.getWorld().getPendingBlockUpdates(chunk, false);
+            if (updateList != null) {
+                long worldTime = chunk.getWorld().getTotalWorldTime();
+                try (StreamingListTagEncoder tileTicksList = levelTag.pushList("TileTicks", CompoundTag.class)) {
+                    for (NextTickListEntry entry : updateList) {
+                        try (StreamingCompoundTagEncoder tileTickTag = tileTicksList.pushCompound()) {
+                            ResourceLocation location = Block.REGISTRY.getNameForObject(entry.getBlock());
+                            tileTickTag.appendString("i", location == null ? "" : location.toString());
+                            tileTickTag.appendInt("x", entry.position.getX());
+                            tileTickTag.appendInt("y", entry.position.getY());
+                            tileTickTag.appendInt("z", entry.position.getZ());
+                            tileTickTag.appendInt("t", (int) (entry.scheduledTime - worldTime));
+                            tileTickTag.appendInt("p", entry.priority);
+                        }
+                    }
                 }
-
-                NibbleArray skylightArray = chunkSection.getSkyLight();
-                if (skylightArray != null) {
-                    sectionNBT.setByteArray("SkyLight", skylightArray.getData());
-                } else {
-                    sectionNBT.setByteArray("SkyLight", EMPTY_LIGHT_ARRAY);
-                }
-
-                chunkSectionList.appendTag(sectionNBT);
             }
         }
-
-        compound.setTag("Sections", chunkSectionList);
-        compound.setByteArray("Biomes", chunk.getBiomeArray());
-
-        compound.setTag("Entities", EMPTY_LIST_TAG);
-
-        NBTTagList tileEntityList = getTileEntityList(chunk);
-        compound.setTag("TileEntities", tileEntityList);
-
-        List<NextTickListEntry> updateList = chunk.getWorld().getPendingBlockUpdates(chunk, false);
-        if (updateList != null) {
-            long worldTime = chunk.getWorld().getTotalWorldTime();
-            NBTTagList entries = new NBTTagList();
-
-            for (NextTickListEntry entry : updateList) {
-                NBTTagCompound entryTag = new NBTTagCompound();
-                ResourceLocation location = Block.REGISTRY.getNameForObject(entry.getBlock());
-                entryTag.setString("i", location == null ? "" : location.toString());
-                entryTag.setInteger("x", entry.position.getX());
-                entryTag.setInteger("y", entry.position.getY());
-                entryTag.setInteger("z", entry.position.getZ());
-                entryTag.setInteger("t", (int) (entry.scheduledTime - worldTime));
-                entryTag.setInteger("p", entry.priority);
-                entries.appendTag(entryTag);
-            }
-
-            compound.setTag("TileTicks", entries);
-        }
-
-        NBTTagCompound rootTag = new NBTTagCompound();
-        rootTag.setTag("Level", compound);
-        return rootTag;
-    }
-
-    protected NBTTagList getTileEntityList(Chunk chunk) {
-        NBTTagList tileEntityList = new NBTTagList();
-
-        chunk.getTileEntityMap().forEach((pos, te) -> {
-            NBTTagCompound compound = new NBTTagCompound();
-            try {
-                te.writeToNBT(compound);
-            } catch (Exception e) {
-                System.err.println("Unable to save tile entity! Compound: " + compound);
-                e.printStackTrace(System.err);
-                return;
-            }
-
-            tileEntityList.appendTag(compound);
-        });
-
-        return tileEntityList;
     }
 }

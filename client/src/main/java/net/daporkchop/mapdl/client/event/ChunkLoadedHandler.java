@@ -15,11 +15,13 @@
 
 package net.daporkchop.mapdl.client.event;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.PooledByteBufAllocator;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import lombok.NonNull;
 import net.daporkchop.mapdl.client.Client;
-import net.daporkchop.mapdl.client.util.ChunkToNBT;
 import net.daporkchop.mapdl.client.util.ChunkSendTask;
+import net.daporkchop.mapdl.client.util.ChunkToNBT;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ChunkProviderClient;
 import net.minecraft.world.World;
@@ -40,15 +42,6 @@ public final class ChunkLoadedHandler {
     @SubscribeEvent
     public void onChunkUnload(@NonNull ChunkEvent.Unload event) {
         this.actuallySaveChunk(event.getChunk());
-    }
-
-    protected void actuallySaveChunk(@NonNull Chunk chunk) {
-        Client.HTTP_WORKER_POOL.submit(new ChunkSendTask(
-                ChunkToNBT.encode(chunk), //encode on client thread because the chunk might not be usable by the time a worker picks it up
-                chunk.x,
-                chunk.z,
-                chunk.getWorld().provider.getDimension()
-        ));
     }
 
     @SuppressWarnings("unchecked")
@@ -73,5 +66,16 @@ public final class ChunkLoadedHandler {
         } else {
             System.out.println("World is null?!?");
         }
+    }
+
+    protected void actuallySaveChunk(@NonNull Chunk chunk) {
+        ByteBuf rawChunk = PooledByteBufAllocator.DEFAULT.directBuffer();
+        ChunkToNBT.encode(chunk, rawChunk);
+        Client.HTTP_WORKER_POOL.submit(new ChunkSendTask(
+                rawChunk,
+                chunk.x,
+                chunk.z,
+                chunk.getWorld().provider.getDimension()
+        ));
     }
 }
