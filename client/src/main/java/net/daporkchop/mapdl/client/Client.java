@@ -17,6 +17,8 @@ package net.daporkchop.mapdl.client;
 
 import io.netty.buffer.ByteBuf;
 import net.daporkchop.lib.common.misc.file.PFiles;
+import net.daporkchop.lib.common.pool.selection.SelectionPool;
+import net.daporkchop.lib.common.util.PorkUtil;
 import net.daporkchop.lib.http.HttpClient;
 import net.daporkchop.lib.http.impl.java.JavaHttpClientBuilder;
 import net.daporkchop.mapdl.client.event.GlobalHandler;
@@ -43,6 +45,7 @@ public class Client {
     public static final String VERSION  = "0.0.1";
 
     public static final HttpClient HTTP_CLIENT = new JavaHttpClientBuilder()
+            .userAgents(SelectionPool.singleton("PorkLib/" + PorkUtil.PORKLIB_VERSION + " 2b2tMapDownloader/" + Client.VERSION))
             .blockingRequests(true)
             .build();
 

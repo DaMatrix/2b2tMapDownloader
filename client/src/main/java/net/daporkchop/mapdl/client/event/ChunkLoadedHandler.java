@@ -20,8 +20,8 @@ import io.netty.buffer.PooledByteBufAllocator;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import lombok.NonNull;
 import net.daporkchop.mapdl.client.Client;
-import net.daporkchop.mapdl.client.util.ChunkSendTask;
 import net.daporkchop.mapdl.client.util.ChunkToNBT;
+import net.daporkchop.mapdl.client.util.FreshChunk;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ChunkProviderClient;
 import net.minecraft.world.World;
@@ -71,11 +71,11 @@ public final class ChunkLoadedHandler {
     protected void actuallySaveChunk(@NonNull Chunk chunk) {
         ByteBuf rawChunk = PooledByteBufAllocator.DEFAULT.directBuffer();
         ChunkToNBT.encode(chunk, rawChunk);
-        Client.HTTP_WORKER_POOL.submit(new ChunkSendTask(
+        Client.COMPRESS_QUEUE.add(new FreshChunk(
                 rawChunk,
+                chunk.getWorld().provider.getDimension(),
                 chunk.x,
-                chunk.z,
-                chunk.getWorld().provider.getDimension()
+                chunk.z
         ));
     }
 }
