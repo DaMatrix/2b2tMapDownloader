@@ -13,22 +13,30 @@
  *
  */
 
-package net.daporkchop.mapdl.common;
+package net.daporkchop.mapdl.client.util;
 
-import lombok.experimental.UtilityClass;
-import net.daporkchop.lib.common.pool.handle.DefaultThreadHandledPool;
-import net.daporkchop.lib.common.pool.handle.HandledPool;
-import net.daporkchop.lib.natives.PNatives;
-import net.daporkchop.lib.natives.zlib.PDeflater;
-import net.daporkchop.lib.natives.zlib.PInflater;
-import net.daporkchop.lib.natives.zlib.Zlib;
+import io.netty.buffer.ByteBuf;
+import lombok.Getter;
+import lombok.NonNull;
+import lombok.RequiredArgsConstructor;
+import lombok.experimental.Accessors;
 
 /**
- * Random constants used by both the client and the server.
+ * A newly encoded chunk which was just unloaded.
+ * <p>
+ * The chunk data has not yet been compressed at this stage.
  *
  * @author DaPorkchop_
  */
-@UtilityClass
-public class SharedConstants {
-    public final int MAX_REQUEST_SIZE = 1 << 24; //16 MiB
+@RequiredArgsConstructor
+@Getter
+@Accessors(fluent = true)
+public final class FreshChunk {
+    protected final long time = System.currentTimeMillis();
+
+    @NonNull
+    protected final ByteBuf data;
+    protected final int     dimension;
+    protected final int     x;
+    protected final int     z;
 }

@@ -53,6 +53,10 @@ dependencies {
         exclude group: "io.netty"
     }
 
+    compile ("net.daporkchop.lib:gui:$porklibVersion") {
+        exclude group: "io.netty"
+    }
+
     //compile "org.fusesource.leveldbjni:leveldbjni-all:$leveldbVersion"
 }
 

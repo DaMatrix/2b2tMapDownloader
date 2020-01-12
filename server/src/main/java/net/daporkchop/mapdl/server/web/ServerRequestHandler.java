@@ -16,11 +16,8 @@
 package net.daporkchop.mapdl.server.web;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
 import io.netty.buffer.Unpooled;
 import lombok.NonNull;
-import net.daporkchop.lib.binary.oio.appendable.PAppendable;
-import net.daporkchop.lib.binary.oio.appendable.UTF8ByteBufAppendable;
 import net.daporkchop.lib.common.function.throwing.ETriConsumer;
 import net.daporkchop.lib.encoding.Hexadecimal;
 import net.daporkchop.lib.hash.util.Digest;
@@ -43,8 +40,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-import static net.daporkchop.mapdl.server.util.ServerConstants.*;
 import static net.daporkchop.lib.logging.Logging.*;
+import static net.daporkchop.mapdl.common.SharedConstants.MAX_REQUEST_SIZE;
 
 /**
  * Handles incoming HTTP requests.
@@ -65,29 +62,28 @@ public final class ServerRequestHandler implements ServerHandler {
                 throw StatusCodes.Method_Not_Allowed.exception();
             }
             User user = this.getAuthenticatedUser(message.headers());
-            String dimension = message.headers().getValue("mapdl-dim");
-            String x = message.headers().getValue("mapdl-x");
-            String z = message.headers().getValue("mapdl-z");
-            if (dimension == null) {
-                throw new GenericHttpException(StatusCodes.Bad_Request, "No dimension given!");
-            } else if (x == null || z == null)  {
-                throw new GenericHttpException(StatusCodes.Bad_Request, "No coordinates given!");
-            }
-            World world = this.server.worlds().get(Integer.parseInt(dimension));
-            if (world == null) {
-                throw new GenericHttpException(StatusCodes.Bad_Request, "Unknown dimension: " + dimension);
-            }
-            int size = ((ByteBuf) message.body()).readableBytes();
-            world.putChunk(Integer.parseInt(x), Integer.parseInt(z), (ByteBuf) message.body());
-            user.incrementSentChunks();
+            ByteBuf buf = (ByteBuf) message.body();
+            do {
+                int dimension = buf.readByte();
+                World world = this.server.worlds().get(dimension);
+                if (world == null)  {
+                    throw new GenericHttpException(StatusCodes.Bad_Request, "Unknown dimension: " + dimension);
+                }
+                long time = buf.readLong();
+                int x = buf.readInt();
+                int z = buf.readInt();
+                int size = buf.getInt(buf.readerIndex()) + 4;
+                world.putChunk(x, z, buf.readRetainedSlice(size), time);
+                user.incrementSentChunks();
+
+                logger.trace("User \"%s\" submitted chunk (%s,%s) @ %.2f KiB", user.name(), x, z, size / 1024.0d);
+            } while (buf.isReadable());
 
             response.status(StatusCodes.OK).body(EMPTY_ENTITY);
-
-            logger.trace("User \"%s\" submitted chunk (%s,%s) @ %.2f KiB", user.name(), x, z, size / 1024.0d);
         });
 
         this.handlers.put("/api/register", (query, message, response) -> {
-            if (query.method() != HttpMethod.POST)  {
+            if (query.method() != HttpMethod.POST) {
                 throw StatusCodes.Method_Not_Allowed.exception();
             }
 
@@ -113,7 +109,7 @@ public final class ServerRequestHandler implements ServerHandler {
                     .hashToByteArray());
 
             User user = new User(username, saltedHash);
-            if (server.users().putIfAbsent(username, user) != null)    {
+            if (server.users().putIfAbsent(username, user) != null) {
                 throw new GenericHttpException(StatusCodes.Internal_Server_Error, "Username already registered: " + username);
             }
 
@@ -145,7 +141,7 @@ public final class ServerRequestHandler implements ServerHandler {
 
     @Override
     public int maxBodySize() {
-        return 1 << 24; //16 MiB
+        return MAX_REQUEST_SIZE;
     }
 
     @Override

@@ -15,15 +15,14 @@
 
 package net.daporkchop.mapdl.client;
 
-import io.netty.util.concurrent.EventExecutorGroup;
-import io.netty.util.concurrent.UnorderedThreadPoolEventExecutor;
+import io.netty.buffer.ByteBuf;
 import net.daporkchop.lib.common.misc.file.PFiles;
-import net.daporkchop.lib.common.misc.threadfactory.ThreadFactoryBuilder;
 import net.daporkchop.lib.http.HttpClient;
-import net.daporkchop.lib.http.impl.java.JavaHttpClient;
 import net.daporkchop.lib.http.impl.java.JavaHttpClientBuilder;
 import net.daporkchop.mapdl.client.event.GlobalHandler;
-import net.daporkchop.mapdl.client.util.ChunkSendTask;
+import net.daporkchop.mapdl.client.util.CompressWorkerThread;
+import net.daporkchop.mapdl.client.util.FreshChunk;
+import net.daporkchop.mapdl.client.util.HttpWorkerThread;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.Mod;
@@ -33,8 +32,9 @@ import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
 import java.io.File;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
 
 @Mod(modid = Client.MOD_ID, name = Client.MOD_NAME, version = Client.VERSION, clientSideOnly = true)
 public class Client {
@@ -42,11 +42,17 @@ public class Client {
     public static final String MOD_NAME = "2b2t Map Downloader";
     public static final String VERSION  = "0.0.1";
 
-    public static EventExecutorGroup HTTP_WORKER_POOL;
-
     public static final HttpClient HTTP_CLIENT = new JavaHttpClientBuilder()
             .blockingRequests(true)
             .build();
+
+    public static CompressWorkerThread[] COMPRESS_WORKERS;
+    public static CountDownLatch         COMPRESS_SHUTDOWN;
+    public static volatile BlockingQueue<FreshChunk> COMPRESS_QUEUE = new LinkedBlockingQueue<>();
+
+    public static HttpWorkerThread[] HTTP_WORKERS;
+    public static CountDownLatch     HTTP_SHUTDOWN;
+    public static volatile BlockingQueue<ByteBuf> HTTP_QUEUE = new LinkedBlockingQueue<>();
 
     @Mod.Instance(MOD_ID)
     public static Client INSTANCE;
@@ -74,7 +80,17 @@ public class Client {
         //set initial value of hashed password
         Conf.updateHashedPassword();
 
-        HTTP_WORKER_POOL = new UnorderedThreadPoolEventExecutor(Conf.HTTP_WORKER_THREADS, new ThreadFactoryBuilder().name("2b2tMapDownloader HTTP worker thread #%d").formatId().build());
+        COMPRESS_WORKERS = new CompressWorkerThread[Conf.COMPRESS_THREADS];
+        for (int i = 0; i < Conf.COMPRESS_THREADS; i++) {
+            (COMPRESS_WORKERS[i] = new CompressWorkerThread(i)).start();
+        }
+        COMPRESS_SHUTDOWN = new CountDownLatch(Conf.COMPRESS_THREADS);
+
+        HTTP_WORKERS = new HttpWorkerThread[Conf.HTTP_THREADS];
+        for (int i = 0; i < Conf.HTTP_THREADS; i++) {
+            (HTTP_WORKERS[i] = new HttpWorkerThread(i)).start();
+        }
+        HTTP_SHUTDOWN = new CountDownLatch(Conf.HTTP_THREADS);
 
         MinecraftForge.EVENT_BUS.register(new GlobalHandler());
     }

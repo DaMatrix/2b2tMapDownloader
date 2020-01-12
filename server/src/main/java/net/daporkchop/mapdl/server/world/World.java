@@ -16,23 +16,18 @@
 package net.daporkchop.mapdl.server.world;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.PooledByteBufAllocator;
 import lombok.NonNull;
 import lombok.experimental.Accessors;
 import net.daporkchop.lib.common.cache.Cache;
-import net.daporkchop.lib.common.cache.SoftCache;
 import net.daporkchop.lib.common.cache.ThreadCache;
 import net.daporkchop.lib.common.function.io.IOBiConsumer;
 import net.daporkchop.lib.common.function.io.IOConsumer;
 import net.daporkchop.lib.common.function.io.IOFunction;
 import net.daporkchop.lib.common.misc.file.PFiles;
-import net.daporkchop.lib.common.pool.handle.Handle;
 import net.daporkchop.lib.math.vector.i.Vec2i;
 import net.daporkchop.lib.minecraft.world.format.anvil.region.RegionConstants;
 import net.daporkchop.lib.minecraft.world.format.anvil.region.RegionFile;
 import net.daporkchop.lib.minecraft.world.format.anvil.region.RegionOpenOptions;
-import net.daporkchop.lib.natives.zlib.PDeflater;
-import net.daporkchop.lib.natives.zlib.PInflater;
 import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.lib.unsafe.util.exception.AlreadyReleasedException;
 import net.daporkchop.mapdl.server.Server;
@@ -51,7 +46,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static net.daporkchop.lib.logging.Logging.*;
-import static net.daporkchop.mapdl.common.SharedConstants.*;
 
 /**
  * Needs a new name, this class actually represents the regions of a single dimension.
@@ -59,7 +53,7 @@ import static net.daporkchop.mapdl.common.SharedConstants.*;
  * @author DaPorkchop_
  */
 @Accessors(fluent = true)
-public class World implements AutoCloseable {
+public final class World implements AutoCloseable {
     protected static final Pattern        REGION_PATTERN               = Pattern.compile("^r\\.(-?[0-9]+)\\.(-?[0-9]+)\\.mca$");
     protected static final Cache<Matcher> REGION_PATTERN_MATCHER_CACHE = ThreadCache.soft(() -> REGION_PATTERN.matcher(""));
 
@@ -168,17 +162,19 @@ public class World implements AutoCloseable {
      * <p>
      * This will result in creation of a new region file if one doesn't exist already.
      * <p>
-     * This will inflate and re-compress the chunk at the maximum ZLIB level.
+     * The given {@link ByteBuf} will be released.
      *
-     * @param x   the X coordinate of the chunk
-     * @param z   the Z coordinate of the chunk
-     * @param buf a {@link ByteBuf} containing the chunk data
+     * @param x    the X coordinate of the chunk
+     * @param z    the Z coordinate of the chunk
+     * @param buf  a {@link ByteBuf} containing the chunk data
+     * @param time the time at which the chunk was saved
+     * @return whether or not the chunk was actually written
      * @throws IOException if an IO exception occurs you dummy
      */
-    public void putChunk(int x, int z, @NonNull ByteBuf buf) throws IOException {
+    public boolean putChunk(int x, int z, @NonNull ByteBuf buf, long time) throws IOException {
         if (buf.getInt(0) != buf.readableBytes() - 4) {
             throw new IllegalArgumentException("Invalid length prefix!");
-        } else if (buf.getByte(4) != RegionConstants.ID_GZIP && buf.getByte(4) != RegionConstants.ID_ZLIB)   {
+        } else if (buf.getByte(4) != RegionConstants.ID_GZIP && buf.getByte(4) != RegionConstants.ID_ZLIB) {
             throw new IllegalArgumentException("Invalid compression version: " + (buf.getByte(4) & 0xFF));
         }
 
@@ -188,7 +184,15 @@ public class World implements AutoCloseable {
             this.assertOpen();
 
             RegionFile region = this.regions.computeIfAbsent(new Vec2i(x >> 5, z >> 5), this.regionCreator);
-            region.writeDirect(x & 0x1F, z & 0x1F, buf.retain());
+            synchronized (region) {
+                if (region.getTimestamp(x & 0x1F, z & 0x1F) < time) {
+                    //if timestamp is less than given time, overwrite it
+                    region.writeDirect(x & 0x1F, z & 0x1F, buf, time);
+                    return true;
+                } else {
+                    return false;
+                }
+            }
         } finally {
             lock.unlock();
         }
