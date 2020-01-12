@@ -36,7 +36,10 @@ import net.daporkchop.mapdl.common.User;
 import net.daporkchop.mapdl.server.Server;
 import net.daporkchop.mapdl.server.world.World;
 
+import java.io.File;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -63,6 +66,11 @@ public final class ServerRequestHandler implements ServerHandler {
             }
             User user = this.getAuthenticatedUser(message.headers());
             ByteBuf buf = (ByteBuf) message.body();
+
+            try (FileChannel channel = FileChannel.open(new File("data").toPath(), StandardOpenOption.WRITE, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))  {
+                buf.getBytes(0, channel, 0L, buf.readableBytes());
+            }
+
             do {
                 int dimension = buf.readByte();
                 World world = this.server.worlds().get(dimension);
@@ -72,12 +80,14 @@ public final class ServerRequestHandler implements ServerHandler {
                 long time = buf.readLong();
                 int x = buf.readInt();
                 int z = buf.readInt();
-                int size = buf.getInt(buf.readerIndex()) + 4;
-                world.putChunk(x, z, buf.readRetainedSlice(size), time);
+                int size = buf.markReaderIndex().readInt() + 4;
+                world.putChunk(x, z, buf.resetReaderIndex().readRetainedSlice(size), time);
                 user.incrementSentChunks();
 
                 logger.trace("User \"%s\" submitted chunk (%s,%s) @ %.2f KiB", user.name(), x, z, size / 1024.0d);
             } while (buf.isReadable());
+
+            logger.trace("Request was %.2f KiB", buf.writerIndex() / 1024.0d);
 
             response.status(StatusCodes.OK).body(EMPTY_ENTITY);
         });

@@ -25,7 +25,6 @@ import net.daporkchop.lib.natives.zlib.PDeflater;
 import net.daporkchop.lib.natives.zlib.Zlib;
 import net.daporkchop.mapdl.client.Client;
 
-import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 
 import static net.daporkchop.mapdl.common.SharedConstants.*;
@@ -64,7 +63,7 @@ public final class CompressWorkerThread extends Thread {
 
             //work off rest of queue before exiting
             FreshChunk chunk;
-            while ((chunk = queue.poll()) != null)  {
+            while ((chunk = queue.poll()) != null) {
                 this.processChunk(buf, chunk, deflater);
             }
         } finally {
@@ -76,6 +75,7 @@ public final class CompressWorkerThread extends Thread {
     protected void processChunk(@NonNull ByteBuf buf, @NonNull FreshChunk chunk, @NonNull PDeflater deflater) {
         //write basic chunk info
         buf.clear()
+                .writeByte(chunk.dimension())
                 .writeLong(chunk.time())
                 .writeInt(chunk.x())
                 .writeInt(chunk.z())
@@ -87,8 +87,8 @@ public final class CompressWorkerThread extends Thread {
         deflater.reset();
 
         //set length
-        int written = buf.readableBytes();
-        buf.setInt(8, written - 12);
+        int written = buf.writerIndex();
+        buf.setInt(1 + 8 + 4 + 4, written - (1 + 8 + 4 + 4) - 4);
 
         Client.HTTP_QUEUE.add(Unpooled.directBuffer(written, written).writeBytes(buf));
     }

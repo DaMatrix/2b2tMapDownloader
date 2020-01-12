@@ -71,32 +71,36 @@ public final class HttpWorkerThread extends Thread {
         ByteBuf chunk = null;
         try {
             do {
-                //empty pending buffers list
-                pendingBuffers.forEach(ByteBuf::release);
-                pendingBuffers.clear();
-
-                if (chunk == null) {
-                    //chunk may be non-null if the previous chunk sending cycle didn't have enough space in the buffer
-                    chunk = queue.take();
-                }
-                pendingBuffers.add(chunk);
-                chunk.getBytes(0, buf); //chunk will never be larger than MAX_REQUEST_SIZE
-                chunk = null;
-
-                //continually poll for more chunks until buffer fills up or timeout expires
-                long endTime = System.currentTimeMillis() + MAX_WAIT_TIME;
-                do {
-                    chunk = queue.poll(endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
-                    if (chunk.writerIndex() <= buf.writableBytes()) {
-                        //if there is enough space, append chunk to buffer
-                        pendingBuffers.add(chunk);
-                        chunk.getBytes(0, buf); //chunk will never be larger than MAX_REQUEST_SIZE
-                        chunk = null;
-                    } else {
-                        //leave chunk value set so we can make another attempt at sending it later
-                        endTime = 0L;
+                //synchronize on queue so that we only have one worker thread filling up a buffer at a time
+                //this limits the number of total requests in favor of larger chunk volume per request (16 megabytes per 15 seconds is basically impossible)
+                synchronized (queue) {
+                    if (chunk == null) {
+                        //chunk may be non-null if the previous chunk sending cycle didn't have enough space in the buffer
+                        chunk = queue.take();
                     }
-                } while (buf.isWritable() && System.currentTimeMillis() < endTime);
+                    pendingBuffers.add(chunk);
+                    chunk.getBytes(0, buf, chunk.readableBytes()); //chunk will never be larger than MAX_REQUEST_SIZE
+                    chunk = null;
+
+                    //continually poll for more chunks until buffer fills up or timeout expires
+                    long endTime = System.currentTimeMillis() + MAX_WAIT_TIME;
+                    do {
+                        chunk = queue.poll(endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+                        if (chunk == null)  {
+                            //if timeout is reached, silently exit loop
+                            break;
+                        }
+                        if (chunk.writerIndex() <= buf.writableBytes()) {
+                            //if there is enough space, append chunk to buffer
+                            pendingBuffers.add(chunk);
+                            chunk.getBytes(0, buf, chunk.readableBytes()); //chunk will never be larger than MAX_REQUEST_SIZE
+                            chunk = null;
+                        } else {
+                            //leave chunk value set so we can make another attempt at sending it later
+                            endTime = 0L;
+                        }
+                    } while (buf.isWritable() && System.currentTimeMillis() < endTime);
+                }
 
                 //actually send request
                 Request<String> request = Client.HTTP_CLIENT.request(HttpMethod.POST, Conf.SERVER_URL + "api/submit")
@@ -112,12 +116,17 @@ public final class HttpWorkerThread extends Thread {
                     //re-enqueue chunks
                     Client.HTTP_QUEUE.addAll(pendingBuffers);
                     Thread.sleep(TimeUnit.SECONDS.toMillis(10L)); //wait 10 seconds (to avoid sending a billion requests over and over again if the server is actually down or something)
+                } else {
+                    pendingBuffers.forEach(bb -> {
+                        if (!bb.release())  {
+                            throw new IllegalStateException(String.valueOf(bb.refCnt()));
+                        }
+                    });
                 }
-            } while (!this.shutdown);
 
-            //empty pending buffers list
-            pendingBuffers.forEach(ByteBuf::release);
-            pendingBuffers.clear();
+                //empty pending buffers list
+                pendingBuffers.clear();
+            } while (!this.shutdown);
         } catch (InterruptedException e) {
             //exit safely if interrupted
         } finally {
