@@ -73,23 +73,26 @@ public final class CompressWorkerThread extends Thread {
     }
 
     protected void processChunk(@NonNull ByteBuf buf, @NonNull FreshChunk chunk, @NonNull PDeflater deflater) {
-        //write basic chunk info
-        buf.clear()
-                .writeByte(chunk.dimension())
-                .writeLong(chunk.time())
-                .writeInt(chunk.x())
-                .writeInt(chunk.z())
-                .writeInt(-1) //length (placeholder)
-                .writeByte(2); //version: zlib
+        try {//write basic chunk info
+            buf.clear()
+                    .writeByte(chunk.dimension())
+                    .writeLong(chunk.time())
+                    .writeInt(chunk.x())
+                    .writeInt(chunk.z())
+                    .writeInt(-1) //length (placeholder)
+                    .writeByte(2); //version: zlib
 
-        //compress chunk
-        deflater.deflate(chunk.data, buf);
-        deflater.reset();
+            //compress chunk
+            deflater.deflate(chunk.data, buf);
+            deflater.reset();
 
-        //set length
-        int written = buf.writerIndex();
-        buf.setInt(1 + 8 + 4 + 4, written - (1 + 8 + 4 + 4) - 4);
+            //set length
+            int written = buf.writerIndex();
+            buf.setInt(1 + 8 + 4 + 4, written - (1 + 8 + 4 + 4) - 4);
 
-        Client.HTTP_QUEUE.add(Unpooled.directBuffer(written, written).writeBytes(buf));
+            Client.HTTP_QUEUE.add(Unpooled.directBuffer(written, written).writeBytes(buf));
+        } finally {
+            chunk.data.release();
+        }
     }
 }

@@ -17,8 +17,10 @@ package net.daporkchop.mapdl.client.event;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.PooledByteBufAllocator;
+import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import lombok.NonNull;
+import net.daporkchop.lib.unsafe.PUnsafe;
 import net.daporkchop.mapdl.client.Client;
 import net.daporkchop.mapdl.client.util.ChunkToNBT;
 import net.daporkchop.mapdl.client.util.FreshChunk;
@@ -69,13 +71,18 @@ public final class ChunkLoadedHandler {
     }
 
     protected void actuallySaveChunk(@NonNull Chunk chunk) {
-        ByteBuf rawChunk = PooledByteBufAllocator.DEFAULT.directBuffer();
-        ChunkToNBT.encode(chunk, rawChunk);
-        Client.COMPRESS_QUEUE.add(new FreshChunk(
-                rawChunk,
-                chunk.getWorld().provider.getDimension(),
-                chunk.x,
-                chunk.z
-        ));
+        ByteBuf tempBuf = PooledByteBufAllocator.DEFAULT.directBuffer(1 << 16);
+        try {
+            ChunkToNBT.encode(chunk, tempBuf);
+            int size = tempBuf.readableBytes();
+            Client.COMPRESS_QUEUE.add(new FreshChunk(
+                    Unpooled.directBuffer(size, size).writeBytes(tempBuf),
+                    chunk.getWorld().provider.getDimension(),
+                    chunk.x,
+                    chunk.z
+            ));
+        } finally {
+            tempBuf.release();
+        }
     }
 }
