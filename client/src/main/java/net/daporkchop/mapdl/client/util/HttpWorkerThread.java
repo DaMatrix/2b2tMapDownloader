@@ -28,6 +28,7 @@ import net.daporkchop.lib.http.response.ResponseBody;
 import net.daporkchop.mapdl.client.Client;
 import net.daporkchop.mapdl.client.Conf;
 
+import java.net.ConnectException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;
@@ -41,7 +42,7 @@ import static net.daporkchop.mapdl.common.SharedConstants.*;
 @Accessors(fluent = true)
 public final class HttpWorkerThread extends Thread {
     //the maximum amount of time that a chunk may be buffered in an HTTP worker's queue before being forcibly sent
-    protected static final long MAX_WAIT_TIME = TimeUnit.SECONDS.toMillis(15L);
+    protected static final long MAX_WAIT_TIME = TimeUnit.SECONDS.toMillis(5L);
 
     @Getter
     protected final    int     id;
@@ -55,7 +56,6 @@ public final class HttpWorkerThread extends Thread {
 
     public void requestShutdown() {
         this.shutdown = true;
-        this.interrupt();
     }
 
     @Override
@@ -72,11 +72,16 @@ public final class HttpWorkerThread extends Thread {
         try {
             do {
                 //synchronize on queue so that we only have one worker thread filling up a buffer at a time
-                //this limits the number of total requests in favor of larger chunk volume per request (16 megabytes per 15 seconds is basically impossible)
+                //this limits the number of total requests in favor of larger chunk volume per request (16 megabytes per 5 seconds is basically impossible)
                 synchronized (queue) {
-                    if (chunk == null) {
-                        //chunk may be non-null if the previous chunk sending cycle didn't have enough space in the buffer
-                        chunk = queue.take();
+                    if (this.shutdown)  {
+                        //break out of loop if shutdown occurred while waiting for lock on queue
+                        break;
+                    }
+                    //chunk may be non-null if the previous chunk sending cycle didn't have enough space in the buffer
+                    if (chunk == null && (chunk = queue.poll(MAX_WAIT_TIME, TimeUnit.MILLISECONDS)) == null) {
+                        //don't wait on this forever
+                        continue;
                     }
                     pendingBuffers.add(chunk);
                     chunk.getBytes(0, buf, chunk.readableBytes()); //chunk will never be larger than MAX_REQUEST_SIZE
@@ -113,8 +118,13 @@ public final class HttpWorkerThread extends Thread {
                 Future<ResponseBody<String>> bodyFuture = request.bodyFuture().awaitUninterruptibly();
 
                 if (!bodyFuture.isSuccess()) {
+                    if (bodyFuture.cause() instanceof ConnectException) {
+                        System.err.println("Connection refused: " + Conf.SERVER_URL);
+                    } else {
+                        bodyFuture.cause().printStackTrace();
+                    }
                     //re-enqueue chunks
-                    Client.HTTP_QUEUE.addAll(pendingBuffers);
+                    queue.addAll(pendingBuffers);
                     Thread.sleep(TimeUnit.SECONDS.toMillis(10L)); //wait 10 seconds (to avoid sending a billion requests over and over again if the server is actually down or something)
                 } else {
                     pendingBuffers.forEach(bb -> {
@@ -127,15 +137,18 @@ public final class HttpWorkerThread extends Thread {
                 //empty pending buffers list
                 pendingBuffers.clear();
             } while (!this.shutdown);
-        } catch (InterruptedException e) {
-            //exit safely if interrupted
+        } catch (Exception e) {
+            e.printStackTrace();
         } finally {
-            if (chunk != null) {
-                Client.HTTP_QUEUE.add(chunk);
+            try {
+                if (chunk != null) {
+                    queue.add(chunk);
+                }
+                queue.addAll(pendingBuffers); //re-add any chunks to the queue if they couldn't be sent
+                buf.release();
+            } finally {
+                Client.HTTP_SHUTDOWN.countDown();
             }
-            Client.HTTP_QUEUE.addAll(pendingBuffers); //re-add any chunks to the queue if they couldn't be sent
-            Client.HTTP_SHUTDOWN.countDown();
-            buf.release();
         }
     }
 }

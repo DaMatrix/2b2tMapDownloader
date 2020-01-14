@@ -184,15 +184,7 @@ public final class World implements AutoCloseable {
             this.assertOpen();
 
             RegionFile region = this.regions.computeIfAbsent(new Vec2i(x >> 5, z >> 5), this.regionCreator);
-            synchronized (region) {
-                if (region.getTimestamp(x & 0x1F, z & 0x1F) < time) {
-                    //if timestamp is less than given time, overwrite it
-                    region.writeDirect(x & 0x1F, z & 0x1F, buf, time);
-                    return true;
-                } else {
-                    return false;
-                }
-            }
+            return region.writeDirect(x & 0x1F, z & 0x1F, buf, time, false);
         } finally {
             lock.unlock();
         }
